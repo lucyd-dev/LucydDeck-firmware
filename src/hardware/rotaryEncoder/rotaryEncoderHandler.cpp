@@ -1,4 +1,4 @@
-#include "rotaryEncoderHandler.h"
+#include "rotaryEncoderHandler.hpp"
 
 RotaryEncoderHandler *RotaryEncoderHandler::instance = nullptr;
 

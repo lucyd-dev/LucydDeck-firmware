@@ -1,4 +1,4 @@
-#include "ConfigManager.h"
+#include "ConfigManager.hpp"
 
 ConfigManager::ConfigManager(const String &configRoot)
     : configRoot(configRoot)

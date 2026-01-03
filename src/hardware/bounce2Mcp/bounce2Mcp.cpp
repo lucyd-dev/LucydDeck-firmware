@@ -1,4 +1,4 @@
-#include "bounce2Mcp.h"
+#include "bounce2Mcp.hpp"
 
 Bounce2Mcp::Bounce2Mcp() {}
 

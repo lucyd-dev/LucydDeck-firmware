@@ -4,7 +4,7 @@
 #include <SD.h>
 #include <esp_display_panel.hpp>
 #include "lvgl_v8_port.h"
-#include "usb/helpers/Actions.h"
+#include "usb/helpers/Actions.hpp"
 
 using namespace esp_panel::drivers;
 using namespace esp_panel::board;

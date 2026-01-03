@@ -1,4 +1,4 @@
-#include "Display.h"
+#include "Display.hpp"
 
 Display *Display::instance = nullptr;
 

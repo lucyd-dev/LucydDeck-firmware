@@ -2,8 +2,8 @@
 
 #include <Bounce2Mcp.h>
 #include <vector>
-#include "hardware/bounce2Mcp/bounce2Mcp.h"
-#include "network/packetProcessor.h"
+#include "hardware/bounce2Mcp/bounce2Mcp.hpp"
+#include "network/packetProcessor.hpp"
 
 class KeypadHandler {
 public:

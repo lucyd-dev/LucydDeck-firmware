@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include "display/display.h"
-#include "LucydDeckController.h"
+#include "display/Display.hpp"
+#include "LucydDeckController.hpp"
 
 LucydDeckController lucydDeck("configs/", "icons/");
 

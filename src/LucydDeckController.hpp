@@ -6,13 +6,13 @@
 
 #include <esp_io_expander.hpp>
 #include <esp_display_panel.hpp>
-#include "display/Display.h"
+#include "display/Display.hpp"
 
-#include "usb/helpers/Actions.h"
-#include "usb/ActionHandler.h"
-#include "config/ConfigManager.h"
+#include "usb/helpers/Actions.hpp"
+#include "usb/ActionHandler.hpp"
+#include "config/ConfigManager.hpp"
 
-#include "usb/CustomHIDDevice.h"
+#include "usb/CustomHIDDevice.hpp"
 #include "USBHIDKeyboard.h"
 #include "USBHIDConsumerControl.h"
 #include "USBHIDMouse.h"

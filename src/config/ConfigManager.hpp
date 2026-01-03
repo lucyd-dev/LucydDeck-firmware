@@ -3,8 +3,8 @@
 #include <Arduino.h>
 #include <SD.h>
 #include <ArduinoJson.h>
-#include "usb/helpers/Actions.h"
-#include "usb/helpers/keyMappings.h"
+#include "usb/helpers/Actions.hpp"
+#include "usb/helpers/keyMappings.hpp"
 
 typedef std::map<uint8_t, String> PageList;
 

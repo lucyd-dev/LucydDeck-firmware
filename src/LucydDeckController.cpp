@@ -1,4 +1,4 @@
-#include "LucydDeckController.h"
+#include "LucydDeckController.hpp"
 
 LucydDeckController *LucydDeckController::instance = nullptr;
 esp_expander::Base *LucydDeckController::expander = nullptr;

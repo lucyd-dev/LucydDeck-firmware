@@ -4,8 +4,8 @@
 #include <USBHIDKeyboard.h>
 #include <USBHIDConsumerControl.h>
 #include <USBHIDMouse.h>
-#include "helpers/Actions.h"
-#include "helpers/keyMappings.h"
+#include "helpers/Actions.hpp"
+#include "helpers/keyMappings.hpp"
 
 class ActionHandler
 {

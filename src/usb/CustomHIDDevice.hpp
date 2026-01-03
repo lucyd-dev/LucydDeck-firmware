@@ -5,7 +5,7 @@
 #include <USB.h>
 #include <USBHIDVendor.h>
 #include <CRC32.h>
-#include "helpers/Commands.h"
+#include "helpers/Commands.hpp"
 #include <span>
 
 class LucydDeckController;

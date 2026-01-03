@@ -1,4 +1,4 @@
-#include "ActionHandler.h"
+#include "ActionHandler.hpp"
 
 ActionHandler::ActionHandler(
     USBHIDKeyboard &keyboard,

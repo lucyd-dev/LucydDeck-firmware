@@ -1,4 +1,4 @@
-#include "CustomHIDDevice.h"
+#include "CustomHIDDevice.hpp"
 
 USBHIDVendor Vendor(PACKET_SIZE, false);
 CustomHIDDevice *CustomHIDDevice::instance = nullptr;
