@@ -1,0 +1,42 @@
+name: Build and Release Firmware
+
+on:
+    push:
+        tags:
+            - 'firmware-v*'
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.x'
+
+            - name: Install PlatformIO
+              run: pip install platformio
+
+            - name: Build firmware (release env)
+              working-directory: ./firmware
+              run: platformio run -e release
+
+            - name: Find firmware binary
+              working-directory: ./firmware
+              id: find_bin
+              run: |
+                  BIN_PATH=$(find .pio/build/release -name "*.bin" | head -n 1)
+                  echo "BIN_PATH=$BIN_PATH" >> $GITHUB_ENV
+
+            - name: Create Release and Upload Asset
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ github.ref_name }}
+                  name: Firmware ${{ github.ref_name }}
+                  files: firmware/${{ env.BIN_PATH }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
