@@ -1,3 +1,7 @@
+* linguist-vendored
+src/* linguist-vendored=false
+*.h linguist-language=C++
+
 # Set the default behavior for all files.
 * text=auto eol=lf
 
