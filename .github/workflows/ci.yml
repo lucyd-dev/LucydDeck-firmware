@@ -21,8 +21,18 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Cache PlatformIO Core & Packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+
       - name: Install PlatformIO
         run: pip install --upgrade platformio
 
       - name: Test Compilation
-        run: pio run -e release
+        run: pio run
