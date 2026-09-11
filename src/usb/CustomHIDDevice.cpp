@@ -1,173 +1,207 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2024 LucydDev
+
 #include "CustomHIDDevice.hpp"
+#include <USB.h>
+#include <USBHIDVendor.h>
 
-USBHIDVendor Vendor(PACKET_SIZE, false);
-CustomHIDDevice *CustomHIDDevice::instance = nullptr;
-
-CustomHIDDevice::CustomHIDDevice()
+namespace usb
 {
-    instance = this;
-    usbQueue = xQueueCreate(10, sizeof(UsbMessage));
-    if (usbQueue == nullptr)
+    USBHIDVendor Vendor(BUFFER_SIZE, false);
+    CustomHIDDevice *CustomHIDDevice::instance = nullptr;
+
+    CustomHIDDevice::CustomHIDDevice()
     {
-        Serial0.println("Failed to create USB queue!");
-    }
-}
-
-void CustomHIDDevice::begin()
-{
-    USB.onEvent(usbEventCallback);
-    Vendor.onEvent(usbEventCallback);
-    Vendor.begin();
-    USB.begin();
-}
-
-void CustomHIDDevice::loop()
-{
-    if (!usbQueue)
-        return;
-
-    UsbMessage msg;
-    if (xQueueReceive(usbQueue, &msg, 0) == pdTRUE)
-    {
-        handlePacket(msg.data);
-    }
-}
-
-void CustomHIDDevice::usbEventCallback(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
-{
-    if (event_base == ARDUINO_USB_EVENTS)
-    {
-        arduino_usb_event_data_t *data = (arduino_usb_event_data_t *)event_data;
-        switch (event_id)
+        instance = this;
+        usbQueue = xQueueCreate(10, sizeof(Packet));
+        if (usbQueue == nullptr)
         {
-        case ARDUINO_USB_STARTED_EVENT:
-            Serial0.println("USB PLUGGED");
-            break;
-        case ARDUINO_USB_STOPPED_EVENT:
-            Serial0.println("USB UNPLUGGED");
-            break;
-        case ARDUINO_USB_SUSPEND_EVENT:
-            Serial0.printf("USB SUSPENDED: remote_wakeup_en: %u\n", data->suspend.remote_wakeup_en);
-            break;
-        case ARDUINO_USB_RESUME_EVENT:
-            Serial0.println("USB RESUMED");
-            break;
-
-        default:
-            break;
+            Serial0.println("[ERR] Failed to create USB queue!");
+        }
+        txMutex = xSemaphoreCreateRecursiveMutex();
+        if (txMutex == nullptr)
+        {
+            Serial0.println("[ERR] Failed to create USB TX mutex!");
         }
     }
-    else if (event_base == ARDUINO_USB_HID_VENDOR_EVENTS)
+    
+    CustomHIDDevice::~CustomHIDDevice()
     {
-        if (event_id != ARDUINO_USB_HID_VENDOR_OUTPUT_EVENT)
+        instance = nullptr;
+        if (usbQueue)
+        {
+            vQueueDelete(usbQueue);
+            usbQueue = nullptr;
+        }
+        if (txMutex)
+        {
+            vSemaphoreDelete(txMutex);
+            txMutex = nullptr;
+        }
+    }
+
+    void CustomHIDDevice::begin()
+    {
+        Vendor.onEvent(vendorEventCallback);
+
+        Vendor.begin();
+    }
+
+    void CustomHIDDevice::loop()
+    {
+        if (!usbQueue)
             return;
 
-        arduino_usb_hid_vendor_event_data_t *data = (arduino_usb_hid_vendor_event_data_t *)event_data;
-        uint8_t buffer[BUFFER_SIZE];
-        Vendor.read(buffer, data->len);
-        if (instance)
-            instance->onOutput(buffer, data->len);
-    }
-}
-
-void CustomHIDDevice::onOutput(uint8_t *buffer, size_t len)
-{
-    UsbMessage msg;
-    memcpy(msg.data, buffer, len);
-    msg.len = len;
-    if (!usbQueue || xQueueSend(usbQueue, &msg, 0) != pdTRUE)
-    {
-        Serial0.println("[ERR] USB queue full or not ready");
-    }
-}
-
-void CustomHIDDevice::handlePacket(Packet packet)
-{
-    if (packet.size() < 6)
-        return;
-
-    auto command = static_cast<Command>(packet[0]);
-    auto dataLen = static_cast<size_t>(packet[1]);
-    auto payload = packet.subspan(2, dataLen);
-    auto receivedCrc = *reinterpret_cast<const uint32_t *>(packet.data() + PACKET_DATA_SIZE);
-    auto calculatedCrc = CRC32::calculate(packet.data(), PACKET_DATA_SIZE);
-
-    if (receivedCrc != calculatedCrc)
-    {
-        Serial0.printf("CRC mismatch, got %08X, expected %08X\n", receivedCrc, calculatedCrc);
-        sendPacket(CMD_ERROR, "crc_error", strlen("crc_error"));
-        return;
-    }
-
-    if (packetCallback)
-        packetCallback(command, payload.data(), payload.size());
-}
-
-Packet CustomHIDDevice::createPacket(const char *data, size_t len)
-{
-    uint8_t buffer[PACKET_PAYLOAD_SIZE];
-    memset(buffer, 0, PACKET_PAYLOAD_SIZE);
-    memcpy(buffer, data, len);
-    return Packet(buffer);
-}
-
-bool CustomHIDDevice::sendPacket(uint8_t command, const char *data, size_t len)
-{
-    Packet packet = createPacket(data, len);
-
-    // Serial0.printf("Sending packet: 0x%02X (len:%d)\n", command, len);
-    if (packet.size() > PACKET_PAYLOAD_SIZE)
-    {
-        size_t remainingLen = packet.size();
-        size_t offset = 0;
-        bool success = true;
-
-        while (remainingLen > 0)
+        Packet packet;
+        if (xQueueReceive(usbQueue, &packet, 0) == pdTRUE)
         {
-            size_t packetLen = min((size_t)PACKET_PAYLOAD_SIZE, remainingLen);
+            handlePacket(packet);
+        }
+    }
 
-            if (!sendSinglePacket(command, packet.subspan(offset, packetLen)))
+    void CustomHIDDevice::vendorEventCallback(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+    {
+        if (event_base != ARDUINO_USB_HID_VENDOR_EVENTS || event_id != ARDUINO_USB_HID_VENDOR_OUTPUT_EVENT)
+            return;
+
+        if (instance == nullptr)
+            return;
+
+        arduino_usb_hid_vendor_event_data_t *data = reinterpret_cast<arduino_usb_hid_vendor_event_data_t *>(event_data);
+        uint8_t buffer[BUFFER_SIZE];
+        size_t len = Vendor.read(buffer, data->len);
+        if (len == static_cast<size_t>(-1))
+            len = 0;
+        instance->onOutput(Packet(buffer, static_cast<uint8_t>(len)));
+    }
+
+    void CustomHIDDevice::onOutput(const Packet &packet)
+    {
+        if (!usbQueue)
+            return;
+
+        if (xQueueSend(usbQueue, &packet, 0) != pdTRUE)
+            Serial0.println("[WARN] USB RX queue full, dropping packet");
+    }
+
+    void CustomHIDDevice::handlePacket(const Packet &packet)
+    {
+        if (packet.length < HEADER_SIZE)
+            return;
+
+        auto command = static_cast<Command>(packet.data[0]);
+        uint16_t sequence = packet.data[1] << 8 | packet.data[2];
+        const uint8_t *payloadPtr = packet.data + 3;
+
+        // Host frames must use host-direction opcodes (bit 7 clear).
+        if (packet.data[0] & 0x80)
+        {
+            sendError(ErrorCode::ERR_INVALID_DIRECTION);
+            return;
+        }
+
+        // Host frames must have M=0; the M-bit is reserved for device→host streams.
+        if ((sequence & 0x8000) != 0)
+        {
+            sendError(ErrorCode::ERR_SEQUENCE);
+            return;
+        }
+
+        // Strict last+1 within the 15-bit host sequence space once the first
+        // frame has established the baseline. Masked compare lets the counter
+        // wrap through 0x7FFF → 0 instead of wedging on the M-bit collision.
+        if (sequenceInitialized && (sequence & 0x7FFF) != ((lastSequence + 1) & 0x7FFF))
+        {
+            Serial0.printf("[ERR] Sequence mismatch, got %d, expected %d\n", sequence & 0x7FFF, (lastSequence + 1) & 0x7FFF);
+            sendError(ErrorCode::ERR_SEQUENCE);
+            return;
+        }
+        lastSequence = sequence & 0x7FFF;
+        sequenceInitialized = true;
+
+        if (packetCallback)
+            packetCallback(command, sequence, payloadPtr, packet.length - HEADER_SIZE);
+    }
+
+    bool CustomHIDDevice::sendPacket(uint8_t command, const char *data, size_t len)
+    {
+        if (txMutex == nullptr || xSemaphoreTakeRecursive(txMutex, TX_LOCK_TIMEOUT_MS) != pdTRUE)
+        {
+            Serial0.println("[ERR] TX lock timeout, dropping send");
+            return false;
+        }
+
+        size_t remainingLen = len;
+        size_t offset = 0;
+        uint16_t chunkIndex = 0;
+        uint16_t totalChunks = (len == 0) ? 1 : static_cast<uint16_t>((len + PACKET_PAYLOAD_SIZE - 1) / PACKET_PAYLOAD_SIZE);
+
+        do
+        {
+            size_t chunkLen = (remainingLen > PACKET_PAYLOAD_SIZE) ? PACKET_PAYLOAD_SIZE : remainingLen;
+            const char *chunkPtr = (data != nullptr) ? data + offset : nullptr;
+
+            // Device→host stream: chunk k of n → seq = k | (k < n-1 ? 0x8000 : 0).
+            // M-bit (0x8000) set while more frames follow, clear on the final frame.
+            uint16_t sequence = chunkIndex;
+            if (chunkIndex < totalChunks - 1)
+                sequence |= 0x8000;
+
+            if (!sendSinglePacket(command, sequence, chunkPtr, chunkLen))
             {
-                Serial0.printf("[ERR] Failed to send chunked packet (len:%d)\n", packetLen);
+                Serial0.printf("[ERR] Failed to send chunk (len:%d)\n", chunkLen);
+                xSemaphoreGiveRecursive(txMutex);
                 return false;
             }
-            remainingLen -= packetLen;
-            offset += packetLen;
-        }
+            chunkIndex++;
+            remainingLen -= chunkLen;
+            offset += chunkLen;
+        } while (remainingLen > 0 || chunkIndex < totalChunks);
+
+        xSemaphoreGiveRecursive(txMutex);
         return true;
     }
 
-    return sendSinglePacket(command, packet);
-}
-
-bool CustomHIDDevice::sendSinglePacket(uint8_t command, Packet packet)
-{
-    static bool in_send = false;
-    if (in_send)
+    bool CustomHIDDevice::sendSinglePacket(uint8_t command, uint16_t sequence, const char *data, size_t len)
     {
-        Serial0.println("[ERR] Recursive send detected!");
-        return false;
-    }
-    in_send = true;
+        if (txMutex == nullptr || xSemaphoreTakeRecursive(txMutex, TX_LOCK_TIMEOUT_MS) != pdTRUE)
+        {
+            Serial0.println("[ERR] TX lock timeout, dropping packet");
+            return false;
+        }
 
-    if (packet.size() > PACKET_PAYLOAD_SIZE)
+        if (len > PACKET_PAYLOAD_SIZE)
+        {
+            Serial0.println("[ERR] Packet too large for sendSinglePacket");
+            xSemaphoreGiveRecursive(txMutex);
+            return false;
+        }
+
+        memset(txBuffer, 0, BUFFER_SIZE);
+        txBuffer[0] = command;                // Byte 0: Command
+        txBuffer[1] = (sequence >> 8) & 0xFF; // Byte 1: Sequence High
+        txBuffer[2] = sequence & 0xFF;
+
+        if (len > 0 && data != nullptr)
+        {
+            memcpy(txBuffer + HEADER_SIZE, data, len);
+        }
+
+        size_t bytesWritten = Vendor.write(txBuffer, BUFFER_SIZE);
+        xSemaphoreGiveRecursive(txMutex);
+
+        return bytesWritten == BUFFER_SIZE;
+    }
+
+    void CustomHIDDevice::sendAck()
     {
-        Serial0.println("[ERR] Packet too large for sendSinglePacket");
-        in_send = false;
-        return false;
+        sendPacket(RESP_ACK, nullptr, 0);
     }
 
-    memset(txBuffer, 0, BUFFER_SIZE);
-    txBuffer[0] = command;
-    txBuffer[1] = packet.size();
-
-    memcpy(txBuffer + 1, packet.data(), packet.size());
-
-    uint32_t crc = CRC32::calculate(txBuffer, PACKET_DATA_SIZE);
-    memcpy(txBuffer + PACKET_DATA_SIZE, &crc, CRC_SIZE);
-
-    size_t bytesWritten = Vendor.write(txBuffer, BUFFER_SIZE);
-    in_send = false;
-
-    return bytesWritten == BUFFER_SIZE;
+    void CustomHIDDevice::sendError(ErrorCode error)
+    {
+        uint8_t payload[1];
+        payload[0] = static_cast<uint8_t>(error);
+        sendPacket(RESP_ERROR, reinterpret_cast<const char *>(payload), 1);
+    }
 }

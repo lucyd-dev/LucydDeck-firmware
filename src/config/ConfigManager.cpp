@@ -1,202 +1,280 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2024 LucydDev
+
 #include "ConfigManager.hpp"
+#include <algorithm>
 
-ConfigManager::ConfigManager(const String &configRoot)
-    : configRoot(configRoot)
+namespace config
 {
-}
+    using namespace actions;
 
-void ConfigManager::init()
-{
-    scanPageDir();
-
-    bool configExists = loadPage();
-    if (!configExists)
-        Serial0.println("no config found, using blank config");
-
-}
-
-void ConfigManager::scanPageDir()
-{
-    currentPageId = 0;
-    pageList.clear();
-    for (uint8_t i = 0; i < 10; i++)
+    ConfigManager::ConfigManager(hardware::Storage &storage) : storage(storage)
     {
-        if (SD.exists(getPageFilename(i)))
+    }
+
+    void ConfigManager::begin()
+    {
+        storage.createDir(hardware::Storage::PROFILES_DIR);
+        scanProfileDir();
+
+        if (profiles.empty()) {
+            Serial0.println("No profiles found. Creating default profile...");
+            storage.createDir(hardware::Storage::PROFILES_DIR + String("default"));
+            scanProfileDir();
+        }
+
+        if (!ensureProfileSelected())
+            Serial0.println("no config found, using blank config");
+    }
+    
+    bool ConfigManager::loadPage(uint8_t pageId)
+    {
+        if (currentProfile.isEmpty() || profiles.find(currentProfile) == profiles.end()) {
+            Serial0.println("Cannot load page: No valid profile selected");
+            return false;
+        }
+
+        PageConfig newConfig;
+        if (!loadPageFromFile(currentProfile, pageId, newConfig))
+            return false;
+
+        currentConfig = std::move(newConfig);
+        return true;
+    }
+    
+    bool ConfigManager::loadProfile(const String &profileName)
+    {
+        if (!hardware::Storage::validateName(profileName))
+            return false;
+
+        auto it = profiles.find(profileName);
+        if (it == profiles.end())
+            return false;
+
+        if (it->second.empty())
+            return false;
+
+        uint8_t pageId = it->second.begin()->first;
+        PageConfig newConfig;
+        if (!loadPageFromFile(profileName, pageId, newConfig))
+            return false;
+
+        currentProfile = profileName;
+        currentConfig = std::move(newConfig);
+        return true;
+    }
+
+    bool ConfigManager::loadPageFromFile(const String &profileName, uint8_t pageId, PageConfig &outConfig)
+    {
+        auto profileIt = profiles.find(profileName);
+        if (profileIt == profiles.end())
+            return false;
+
+        auto pageIt = profileIt->second.find(pageId);
+        if (pageIt == profileIt->second.end())
+            return false;
+
+        String fullPath = hardware::Storage::PROFILES_DIR + profileName + "/" + pageIt->second;
+
+        if (!storage.fileExists(fullPath))
         {
-            pageList[i] = getPageFilename(i);
+            Serial0.printf("Page file not found: %s\n", fullPath.c_str());
+            return false;
+        }
+
+        File file = storage.openFile(fullPath);
+        if (!file)
+        {
+            Serial0.printf("Failed to open page file: %s\n", fullPath.c_str());
+            return false;
+        }
+
+        bool success = parsePageJson(file, outConfig);
+        file.close();
+        return success;
+    }
+
+    void ConfigManager::scanProfileDir()
+    {
+        std::vector<String> profilesList = storage.listDir(hardware::Storage::PROFILES_DIR, true);
+        
+        for (const String& profile : profilesList)
+        {
+            if (profiles.find(profile) != profiles.end())
+                continue;
+
+            profiles[profile] = PageList();
+            Serial0.printf("Found profile: %s\n", profile.c_str());
+
+            profiles[profile] = buildPageList(hardware::Storage::PROFILES_DIR + profile + "/");
         }
     }
-    currentPageId = pageList.begin()->first;
-    Serial0.printf("Found %d pages\n", pageList.size());
-}
 
-const PageConfig &ConfigManager::getCurrentConfig() const
-{
-    return currentConfig;
-}
-
-const PageList &ConfigManager::getPageList() const
-{
-    return pageList;
-}
-
-uint8_t ConfigManager::getPageCount() const
-{
-    return pageList.size();
-}
-
-uint8_t ConfigManager::getCurrentPageId() const
-{
-    return currentPageId;
-}
-
-String ConfigManager::getPageFilename(uint8_t pageId) const
-{
-    return configRoot + "page-" + String(pageId) + ".json";
-}
-
-bool ConfigManager::isPageValid(uint8_t pageId) const
-{
-    return pageList.find(pageId) != pageList.end();
-}
-
-bool ConfigManager::loadPage(uint8_t pageId)
-{
-    if(pageList.find(pageId) == pageList.end())
-        return false;
-
-    String filename = getPageFilename(pageId);
-    File file = SD.open(filename, FILE_READ);
-    if (!file)
-        return false;
-
-    String json;
-    while (file.available())
+    PageList ConfigManager::buildPageList(const String &pageDir)
     {
-        json += (char)file.read();
-    }
-    file.close();
+        PageList result;
+        std::vector<String> pagesList = storage.listDir(pageDir, false);
+        std::sort(pagesList.begin(), pagesList.end());
 
-    PageConfig newConfig;
-    if (!parsePageJson(json, newConfig))
-        return false;
-
-    currentConfig = std::move(newConfig);
-    currentPageId = pageId;
-    return true;
-}
-
-bool ConfigManager::parsePageJson(const String &json, PageConfig &outConfig)
-{
-    JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, json);
-    if (err)
-        return false;
-
-    JsonObject root = doc.as<JsonObject>();
-    if (!root["buttons"].is<JsonObject>())
-        return false;
-
-    JsonObject buttons = root["buttons"].as<JsonObject>();
-    for (JsonPair kv : buttons)
-    {
-        ButtonId btnId = atoi(kv.key().c_str());
-        JsonObject btnObj = kv.value().as<JsonObject>();
-        ButtonConfig btnConfig;
-
-        btnConfig.imageName = btnObj["imageName"].as<String>();
-
-        JsonArray clickSeq = btnObj["click"].as<JsonArray>();
-        btnConfig.click = parseActionSequence(clickSeq);
-
-        JsonArray longPressSeq = btnObj["longPress"].as<JsonArray>();
-        btnConfig.longPress = parseActionSequence(longPressSeq);
-
-        outConfig[btnId] = btnConfig;
-    }
-    return true;
-}
-
-ActionSequence ConfigManager::parseActionSequence(const JsonArray &seq)
-{
-    ActionSequence sequence;
-    for (JsonObject actionObj : seq)
-    {
-        String actionType = actionObj["action"].as<String>();
-        ActionTypeEnum typeEnum = actionTypeFromString(actionType);
-
-        switch (typeEnum)
+        for (const String &page : pagesList)
         {
-        case ActionTypeEnum::HID_KEY:
-        {
-            HidKeyAction act;
-            if (actionObj["keycodes"].is<JsonArray>())
+            std::optional<uint8_t> pageId = parsePageId(page);
+            if (!pageId.has_value())
             {
-                for (JsonVariant key : actionObj["keycodes"].as<JsonArray>())
-                {
-                    uint16_t code = getKeyValue(key.as<String>());
-                    if (code != 0)
-                        act.keycodes.push_back((uint8_t)code);
-                }
+                Serial0.printf("  Skipping non-page file: %s\n", page.c_str());
+                continue;
             }
-            sequence.push_back(ActionStep{act});
-            break;
+            if (result.find(*pageId) == result.end())
+            {
+                result[*pageId] = page;
+                Serial0.printf("  Found page: %s (id %u)\n", page.c_str(), *pageId);
+            }
         }
-        case ActionTypeEnum::CONTROL_KEY:
-        {
-            ControlKeyAction act;
-            act.keycode = getKeyValue(actionObj["keycode"].as<String>());
-            sequence.push_back(ActionStep{act});
-            break;
-        }
-        case ActionTypeEnum::MOUSE_MOVE:
-        {
-            MouseMoveAction act;
-            act.x = actionObj["x"] | 0;
-            act.y = actionObj["y"] | 0;
-            act.wheel = actionObj["wheel"] | 0;
-            sequence.push_back(ActionStep{act});
-            break;
-        }
-        case ActionTypeEnum::MOUSE_CLICK:
-        {
-            MouseClickAction act;
-            act.button = actionObj["button"] | "";
-            act.count = actionObj["count"] | 1;
-            sequence.push_back(ActionStep{act});
-            break;
-        }
-        case ActionTypeEnum::DELAY:
-        {
-            DelayAction act;
-            act.ms = actionObj["ms"] | 0;
-            sequence.push_back(ActionStep{act});
-            break;
-        }
-        case ActionTypeEnum::TEXT:
-        {
-            TextAction act;
-            act.text = actionObj["string"] | "";
-            sequence.push_back(ActionStep{act});
-            break;
-        }
-        case ActionTypeEnum::CMD:
-        {
-            CmdAction act;
-            act.command = actionObj["command"] | "";
-            sequence.push_back(ActionStep{act});
-            break;
-        }
-        case ActionTypeEnum::PAGE:
-        {
-            PageAction act;
-            act.targetPage = actionObj["targetPage"] | 0;
-            sequence.push_back(ActionStep{act});
-            break;
-        }
-        default:
-            break;
-        }
+        return result;
     }
-    return sequence;
+
+    std::optional<uint8_t> ConfigManager::parsePageId(const String &filename)
+    {
+        return hardware::Storage::parsePageId(filename);
+    }
+
+    bool ConfigManager::ensureProfileSelected()
+    {
+        if (profiles.empty())
+        {
+            currentProfile = "";
+            currentConfig.clear();
+            Serial0.println("No profiles available, using blank config");
+            return false;
+        }
+
+        if (currentProfile.isEmpty() || profiles.find(currentProfile) == profiles.end())
+        {
+            if (profiles.count("default"))
+                currentProfile = "default";
+            else
+                currentProfile = profiles.begin()->first;
+        }
+
+        if (!loadProfile(currentProfile))
+        {
+            Serial0.println("no config found, using blank config");
+            return false;
+        }
+
+        Serial0.printf("Selected profile: %s\n", currentProfile.c_str());
+        return true;
+    }
+
+    void ConfigManager::refreshProfile(const String &profileName)
+    {
+        auto it = profiles.find(profileName);
+        if (it == profiles.end())
+            return;
+
+        it->second = buildPageList(hardware::Storage::PROFILES_DIR + profileName + "/");
+    }
+
+    void ConfigManager::addProfile(const String &name)
+    {
+        if (profiles.find(name) == profiles.end())
+            profiles[name] = PageList();
+    }
+
+    void ConfigManager::onProfileRenamed(const String &oldName, const String &newName)
+    {
+        auto it = profiles.find(oldName);
+        if (it == profiles.end())
+            return;
+
+        PageList pages = std::move(it->second);
+        profiles.erase(oldName);
+        profiles[newName] = std::move(pages);
+
+        if (currentProfile == oldName)
+            currentProfile = newName;
+    }
+
+    void ConfigManager::onProfileDeleted(const String &name)
+    {
+        profiles.erase(name);
+        if (currentProfile == name)
+            currentProfile = "";
+    }
+
+    const ProfileList &ConfigManager::getProfiles() const
+    {
+        return profiles;
+    }
+
+    const String &ConfigManager::getCurrentProfile() const
+    {
+        return currentProfile;
+    }
+
+    const PageConfig &ConfigManager::getCurrentConfig() const
+    {
+        return currentConfig;
+    }
+
+    bool ConfigManager::parsePageJson(Stream &json, PageConfig &outConfig)
+    {
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, json);
+        if (err)
+            return false;
+
+        JsonObject root = doc.as<JsonObject>();
+        if (!root["buttons"].is<JsonObject>())
+            return false;
+
+        JsonObject buttons = root["buttons"].as<JsonObject>();
+        for (JsonPair kv : buttons)
+        {
+            uint8_t btnId = atoi(kv.key().c_str());
+            JsonObject btnObj = kv.value().as<JsonObject>();
+            ButtonConfig btnConfig;
+
+            btnConfig.imageName = btnObj["imageName"].as<String>();
+
+            JsonArray clickSeq = btnObj["click"].as<JsonArray>();
+            btnConfig.click = parseActionSequence(clickSeq);
+
+            JsonArray longPressSeq = btnObj["longPress"].as<JsonArray>();
+            btnConfig.longPress = parseActionSequence(longPressSeq);
+
+            outConfig[btnId] = btnConfig;
+        }
+        return true;
+    }
+
+    ActionSequence ConfigManager::parseActionSequence(const JsonArray &seq)
+    {
+        ActionSequence sequence;
+        size_t dropped = 0;
+
+        for (JsonVariant item : seq)
+        {
+            if (!item.is<const char*>())
+            {
+                dropped++;
+                continue;
+            }
+
+            std::optional<ActionData> parsed = parseActionString(item.as<String>());
+            if (parsed.has_value())
+            {
+                sequence.push_back(ActionStep{std::move(*parsed)});
+            }
+            else
+            {
+                dropped++;
+            }
+        }
+        if (dropped > 0)
+        {
+            Serial0.printf("[WARN] %u action(s) skipped (malformed action string, re-upload config)\n", dropped);
+        }
+        return sequence;
+    }
 }

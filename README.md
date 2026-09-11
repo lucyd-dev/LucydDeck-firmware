@@ -22,16 +22,20 @@ cd LucydDeck-firmware
 
 ### 2. Connect Your Device
 
-Connect your ESP32-S3 via the USB-Enhanced-SERIAL (CH343) port.
+The Waveshare board features two separate USB-C ports with distinct roles:
 
-To identify which COM port your device is connected to, run:
+* **USB-Enhanced-SERIAL (CH343):** Required for the initial flash to flash the bootloader and firmware onto a clean board (or for unbricking).
+
+* **Native USB (USB-OTG):** Used for runtime operation, host HID communication, and subsequent firmware updates / serial monitoring once the firmware's native USB CDC stack is active.
+
+Connect the board via the **CH343 port** for your very first flash. To identify the assigned port, run:
 
 ```bash
 pio device list
 ```
 
 > [!NOTE]
-> PlatformIO usually auto-detects the port, so specifying it is optional to upload or monitor.
+> PlatformIO usually auto-detects the port, so specifying it manually with `--upload-port` is optional. After the initial flash, you can switch to the Native USB port for normal development and host-app testing.
 
 ### 3. Build & Upload
 
@@ -65,15 +69,54 @@ pio run -e <debug or release> -t monitor
 pio device monitor --port <COMX>
 ```
 
+## 🚀 Host Application Quick Start
+
+LucydDeck acts as a passive device driven by a companion desktop client. Host integrations interact exclusively with the custom **Vendor HID pipe**; do not capture or intercept the OS-level standard HID interfaces (Keyboard, Mouse, Consumer Control).
+
+### Connection Parameters
+
+| Parameter | Value |
+|---|---|
+| **VID / PID** | `0x303A` : `0x1001` (Espressif Native USB) |
+| **Usage Page / Usage** | `0xFF00` / `0x01` |
+| **Report ID / Frame Size** | `0x06` / 64 bytes (1-byte ID + 63-byte raw frame) |
+
+---
+
+### Implementation Lifecycle
+
+**[ Enumerate & Open ] ──► [ Handshake ] ──► [ Sync Cache ] ──► [ Provision / Push ] ──► [ Event Loop ]**
+
+1. **Enumerate & Open**
+   Scan for `VID 0x303A` / `PID 0x822E` on the front native USB port and open the vendor interface (`Usage Page 0xFF00`, Report ID `0x06`).
+2. **Protocol Handshake**
+   Send `CMD_VERSION` (sequence `0`). Verify that the device responds with `RESP_VERSION` containing the firmware semver string (`vX.X.X`).
+3. **Cache Reconciliation**
+   Issue `CMD_PROFILES_LIST` and `CMD_IMAGE_LIST` to retrieve on-device profile trees and file checksums before performing transfers.
+4. **Asset Synchronization**
+   Create required profiles using `CMD_PROFILE_CREATE`, then stage missing icons (`.png`) and layout definitions (`<id>.json`) via the [File Transfer Protocol](wiki/File-Transfer-Protocol.md).
+5. **Runtime Event Loop**
+   * **Active Control:** Dispatch `CMD_NAVIGATE` (`PAGE:<id>` or `PROFILE:<name>`) to control active UI state from the PC.
+   * **Plugin Handling:** Continuously listen for incoming `EVT_ACTION_TRIGGERED` reports to execute custom desktop actions (e.g., OBS scene switches, mute toggles, Discord events).
+
+## 📜 Developer & Integration Documentation
+
+Comprehensive architecture guides, protocol specifications, and schema definitions are maintained in the [LucydDeck Wiki](wiki/Home.md).
+
+* **Host Integration:** Refer to the [USB Protocol](wiki/USB-Protocol.md) for packet structure and the `EVT_ACTION_TRIGGERED` event pipeline.
+* **Configuration Management:** Refer to the [Configuration Schema](wiki/Configuration-Schema.md) and [File Transfer Protocol](wiki/File-Transfer-Protocol.md) for managing profiles, grid layouts, and button assets.
+
 ## 📦 Dependencies
 
 This project relies on the following key libraries to interface with the Waveshare hardware:
 
-- [ESP32_Display_Panel](https://github.com/esp-arduino-libs/ESP32_Display_Panel) – Display driver implementation
-- [ESP32_IO_Expander](https://github.com/esp-arduino-libs/ESP32_IO_Expander) – IO expansion handling
-- [LVGL](https://github.com/lvgl/lvgl) – Light and Versatile Graphics Library
-- [ArduinoJson](https://github.com/bblanchon/ArduinoJson) – JSON serialization/deserialization
-- [CRC32](https://github.com/bakercp/CRC32) – Cyclic Redundancy Check
+* [Arduino Core for ESP32](https://github.com/espressif/arduino-esp32) ([LGPL-2.1](https://github.com/espressif/arduino-esp32/blob/master/LICENSE.md))
+* [ESP32_Display_Panel](https://github.com/esp-arduino-libs/ESP32_Display_Panel) ([Apache-2.0](https://github.com/esp-arduino-libs/ESP32_Display_Panel/blob/master/license.txt))
+* [ESP32_IO_Expander](https://github.com/esp-arduino-libs/ESP32_IO_Expander) ([Apache-2.0](https://github.com/esp-arduino-libs/ESP32_IO_Expander/blob/master/license.txt))
+* [esp-lib-utils](https://github.com/esp-arduino-libs/esp-lib-utils) ([Apache-2.0](https://github.com/esp-arduino-libs/esp-lib-utils/blob/master/license.txt))
+* [LVGL](https://github.com/lvgl/lvgl) ([MIT](https://github.com/lvgl/lvgl/blob/master/LICENCE.txt))
+* [ArduinoJson](https://github.com/bblanchon/ArduinoJson) ([MIT](https://github.com/bblanchon/ArduinoJson/blob/7.x/LICENSE.txt))
+* [CRC32](https://github.com/bakercp/CRC32) ([MIT](https://github.com/bakercp/CRC32/blob/master/LICENSE.md))
 
 ## 🤝 Contributing
 
@@ -81,6 +124,6 @@ If you find this project interesting or useful, contributions are highly welcome
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the GPL-3.0 License - see the [LICENSE.md](LICENSE.md) file for details.
 
-`Made with 💜 by Lucyd since 2026`
+`Made with 💜 by Lucyd since 2024`
