@@ -18,3 +18,31 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Checkout repository
+        if: ${{ steps.release.outputs.releases_created }}
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: ${{ steps.release.outputs.releases_created }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        if: ${{ steps.release.outputs.releases_created }}
+        run: pip install --upgrade platformio
+
+      - name: Build Firmware
+        if: ${{ steps.release.outputs.releases_created }}
+        run: pio run -e release
+
+      - name: Upload Firmware to Release
+        if: ${{ steps.release.outputs.releases_created }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BIN_PATH=$(find .pio/build -name "firmware.bin" | head -n 1)
+          OUTPUT_NAME="LucydDeck-firmware-${{ steps.release.outputs.tag_name }}.bin"
+          cp "$BIN_PATH" "$OUTPUT_NAME"
+          gh release upload ${{ steps.release.outputs.tag_name }} "$OUTPUT_NAME" --clobber
