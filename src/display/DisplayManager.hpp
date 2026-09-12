@@ -28,6 +28,7 @@ namespace display
         std::string currentImageBase;
         std::string currentIconPath;
         std::string currentLabel;
+        std::string currentBgColor;
         bool hasEmptyStyle = false;
     };
 
@@ -44,11 +45,12 @@ namespace display
         void renderButtonsFromConfig(const config::actions::PageConfig &config);
         void setButtonCallback(const ButtonCallback &cb) { buttonCallback = cb; }
         bool isRenderPending() const { return renderPending_; }
-        
+
     private:
         hardware::Storage &storage;
         ButtonCallback buttonCallback = nullptr;
         lv_style_t style_pr;
+        lv_style_t style_btn;
         lv_style_t style_empty;
         lv_style_t style_splash_label;
         lv_obj_t *scrSplash = nullptr;
@@ -67,5 +69,7 @@ namespace display
         void updateSlot(ButtonSlot &slot, const config::actions::ButtonConfig &btnCfg);
         void setSlotEmpty(ButtonSlot &slot);
         void setEmptyStyle(ButtonSlot &slot, bool apply);
+        static bool parseHexColor(const String &hex, lv_color_t &outColor);
+        void applySlotBgColor(ButtonSlot &slot, const String &hexColor);
     };
 }

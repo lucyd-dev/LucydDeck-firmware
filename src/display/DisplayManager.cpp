@@ -26,7 +26,7 @@ namespace display
 
         Serial0.println("Initialize LVGL");
         lvgl_port_init(board.getLCD(), board.getTouch());
-        
+
         uint16_t width = board.getLCD()->getFrameWidth();
         uint16_t height = board.getLCD()->getFrameHeight();
         Serial0.printf("Panel resolution: %dx%d\n", width, height);
@@ -42,20 +42,23 @@ namespace display
         lv_scr_load(scrSplash);
         lvgl_port_unlock();
     }
-    
+
     void DisplayManager::setStyles()
     {
         static lv_style_prop_t tr_prop[] = {LV_STYLE_IMG_RECOLOR_OPA, LV_STYLE_PROP_INV};
         static lv_style_transition_dsc_t tr;
-        
-        // Style for empty buttons
+
+        // Style for all buttons
+        lv_style_init(&style_btn);
+        lv_style_set_radius(&style_btn, 10);
+
+        // Style for only empty buttons
         lv_style_init(&style_empty);
-        lv_style_set_radius(&style_empty, 10);
         lv_style_set_bg_opa(&style_empty, LV_OPA_COVER);
         lv_style_set_bg_color(&style_empty, lv_color_hex(0x222222));
         lv_style_set_border_color(&style_empty, lv_color_hex(0x444444));
         lv_style_set_border_width(&style_empty, 3);
-        
+
         // Style for pressed state of image buttons
         lv_style_init(&style_pr);
         lv_style_set_img_recolor_opa(&style_pr, LV_OPA_40);
@@ -104,17 +107,17 @@ namespace display
 
         static lv_coord_t col_dsc[] = {Layout::BTN_SZ, Layout::BTN_SZ, Layout::BTN_SZ, Layout::BTN_SZ, Layout::BTN_SZ, LV_GRID_TEMPLATE_LAST};
         static lv_coord_t row_dsc[] = {Layout::BTN_SZ, Layout::BTN_SZ, Layout::BTN_SZ, LV_GRID_TEMPLATE_LAST};
-        
+
         lv_obj_t *cont = lv_obj_create(scrMain);
         lv_obj_set_size(cont, Layout::SCREEN_W, Layout::SCREEN_H);
         lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_center(cont);
         lv_obj_set_grid_dsc_array(cont, col_dsc, row_dsc);
         lv_obj_set_layout(cont, LV_LAYOUT_GRID);
-        
+
         lv_obj_set_style_bg_color(cont, lv_color_hex(0x000000), LV_PART_MAIN);
         lv_obj_set_style_border_width(cont, 0, 0);
-        
+
         lv_obj_set_style_pad_all(cont, Layout::EDGE_PAD, 0);
         lv_obj_set_style_pad_column(cont, Layout::COL_GAP, 0);
         lv_obj_set_style_pad_row(cont, Layout::ROW_GAP, 0);
@@ -131,19 +134,20 @@ namespace display
                 lv_obj_set_grid_cell(btn, LV_GRID_ALIGN_STRETCH, col, 1, LV_GRID_ALIGN_STRETCH, row, 1);
                 lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
                 lv_obj_add_style(btn, &style_pr, LV_STATE_PRESSED);
+                lv_obj_add_style(btn, &style_btn, LV_PART_MAIN);
                 lv_obj_add_style(btn, &style_empty, LV_PART_MAIN);
-                
+
                 slot.btn = btn;
                 slot.img = btn;
-                
+
                 slot.label = lv_label_create(slot.btn);
                 lv_label_set_text(slot.label, "");
                 lv_obj_set_style_text_color(slot.label, lv_color_white(), 0);
                 lv_obj_clear_flag(slot.label, LV_OBJ_FLAG_CLICKABLE);
-                
+
                 slot.userData.index = index;
                 slot.hasEmptyStyle = true;
-                
+
                 lv_obj_set_user_data(btn, &slot.userData);
                 lv_obj_add_event_cb(btn, eventHandler, LV_EVENT_ALL, &slot.userData);
             }
@@ -166,7 +170,7 @@ namespace display
             return;
         }
         renderPending_ = false;
-        
+
         lv_anim_del(splashLabel, NULL);
         lv_obj_align(splashLabel, LV_ALIGN_CENTER, 0, -400);
 
@@ -227,8 +231,9 @@ namespace display
 
     void DisplayManager::updateSlot(ButtonSlot &slot, const config::actions::ButtonConfig &btnCfg)
     {
-        bool hasImage = !btnCfg.imageName.isEmpty();
-        bool hasLabel = !btnCfg.label.isEmpty();
+        bool hasImage = !btnCfg.imageName.isEmpty() && btnCfg.imageName != "null";
+        bool hasLabel = !btnCfg.label.isEmpty() && btnCfg.label != "null";
+        bool hasBgColor = !btnCfg.backgroundColor.isEmpty() && btnCfg.backgroundColor != "null";
 
         if (hasImage)
         {
@@ -271,6 +276,9 @@ namespace display
             }
             lv_obj_add_flag(slot.label, LV_OBJ_FLAG_HIDDEN);
         }
+
+        String bgColor = hasBgColor ? btnCfg.backgroundColor : "";
+        applySlotBgColor(slot, bgColor);
     }
 
     void DisplayManager::setSlotEmpty(ButtonSlot &slot)
@@ -289,6 +297,7 @@ namespace display
             lv_label_set_text(slot.label, "");
         }
         lv_obj_add_flag(slot.label, LV_OBJ_FLAG_HIDDEN);
+        applySlotBgColor(slot, "");
     }
 
     void DisplayManager::setEmptyStyle(ButtonSlot &slot, bool apply)
@@ -300,5 +309,44 @@ namespace display
         else
             lv_obj_remove_style(slot.btn, &style_empty, LV_PART_MAIN);
         slot.hasEmptyStyle = apply;
+    }
+
+    bool DisplayManager::parseHexColor(const String &hex, lv_color_t &outColor)
+    {
+        String s = hex;
+        s.trim();
+        if (!s.startsWith("#"))
+            return false;
+        s = s.substring(1);
+        if (s.length() != 6)
+            return false;
+        for (unsigned int i = 0; i < s.length(); ++i)
+        {
+            if (!isxdigit(static_cast<unsigned char>(s[i])))
+                return false;
+        }
+        uint8_t r = static_cast<uint8_t>(strtoul(s.substring(0, 2).c_str(), nullptr, 16));
+        uint8_t g = static_cast<uint8_t>(strtoul(s.substring(2, 4).c_str(), nullptr, 16));
+        uint8_t b = static_cast<uint8_t>(strtoul(s.substring(4, 6).c_str(), nullptr, 16));
+        outColor = lv_color_make(r, g, b);
+        return true;
+    }
+
+    void DisplayManager::applySlotBgColor(ButtonSlot &slot, const String &hexColor)
+    {
+        std::string key = hexColor.c_str();
+        if (key == slot.currentBgColor)
+            return;
+
+        slot.currentBgColor = key;
+        lv_obj_remove_local_style_prop(slot.btn, LV_STYLE_BG_COLOR, LV_PART_MAIN);
+        lv_obj_remove_local_style_prop(slot.btn, LV_STYLE_BG_OPA, LV_PART_MAIN);
+
+        lv_color_t color;
+        if (key.empty() || !parseHexColor(hexColor, color))
+            return;
+
+        lv_obj_set_style_bg_color(slot.btn, color, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(slot.btn, LV_OPA_COVER, LV_PART_MAIN);
     }
 }
