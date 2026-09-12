@@ -45,11 +45,12 @@ namespace display
         void renderButtonsFromConfig(const config::actions::PageConfig &config);
         void setButtonCallback(const ButtonCallback &cb) { buttonCallback = cb; }
         bool isRenderPending() const { return renderPending_; }
-        
+
     private:
         hardware::Storage &storage;
         ButtonCallback buttonCallback = nullptr;
         lv_style_t style_pr;
+        lv_style_t style_btn;
         lv_style_t style_empty;
         lv_style_t style_splash_label;
         lv_obj_t *scrSplash = nullptr;

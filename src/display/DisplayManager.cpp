@@ -48,9 +48,12 @@ namespace display
         static lv_style_prop_t tr_prop[] = {LV_STYLE_IMG_RECOLOR_OPA, LV_STYLE_PROP_INV};
         static lv_style_transition_dsc_t tr;
 
-        // Style for empty buttons
+        // Style for all buttons
+        lv_style_init(&style_btn);
+        lv_style_set_radius(&style_btn, 10);
+
+        // Style for only empty buttons
         lv_style_init(&style_empty);
-        lv_style_set_radius(&style_empty, 10);
         lv_style_set_bg_opa(&style_empty, LV_OPA_COVER);
         lv_style_set_bg_color(&style_empty, lv_color_hex(0x222222));
         lv_style_set_border_color(&style_empty, lv_color_hex(0x444444));
@@ -131,6 +134,7 @@ namespace display
                 lv_obj_set_grid_cell(btn, LV_GRID_ALIGN_STRETCH, col, 1, LV_GRID_ALIGN_STRETCH, row, 1);
                 lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
                 lv_obj_add_style(btn, &style_pr, LV_STATE_PRESSED);
+                lv_obj_add_style(btn, &style_btn, LV_PART_MAIN);
                 lv_obj_add_style(btn, &style_empty, LV_PART_MAIN);
 
                 slot.btn = btn;
