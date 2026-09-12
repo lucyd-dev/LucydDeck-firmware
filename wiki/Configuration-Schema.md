@@ -27,6 +27,7 @@ Only keys actually read by `parsePageJson` are part of the contract. All are opt
 |---|---|---|
 | `buttons` | object (map) | maps button index `"0".."14"` → button object |
 | `buttons.<id>.imageName` | string | icon **base name, no extension**; firmware appends `.png` |
+| `buttons.<id>.backgroundColor` | string | optional background color shown on the button |
 | `buttons.<id>.label` | string | optional text label shown on the button |
 | `buttons.<id>.click` | array | sequence of plain action strings for a short click |
 | `buttons.<id>.longPress` | array | sequence of plain action strings for a long press |
@@ -47,6 +48,7 @@ Only keys actually read by `parsePageJson` are part of the contract. All are opt
       "click": ["discord:mute"]
     },
     "3": {
+      "backgroundColor": "#9802D3",
       "click": ["PAGE:2"]
     }
   }
@@ -92,7 +94,7 @@ When a button press produces such an action, the device sends an **`EVT_ACTION_T
 
 ### Summary table
 
-| Namespace | Consumer | 
+| Namespace | Consumer |
 |---|---|
 | `PAGE`, `PROFILE` | firmware (internal) |
 | `HID_KEY`, `CONTROL_KEY`, `MOUSE_MOVE`, `MOUSE_CLICK`, `DELAY`, `TEXT` | firmware USB HID (local) |
