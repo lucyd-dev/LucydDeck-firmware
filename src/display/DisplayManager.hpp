@@ -28,6 +28,7 @@ namespace display
         std::string currentImageBase;
         std::string currentIconPath;
         std::string currentLabel;
+        std::string currentBgColor;
         bool hasEmptyStyle = false;
     };
 
@@ -67,5 +68,7 @@ namespace display
         void updateSlot(ButtonSlot &slot, const config::actions::ButtonConfig &btnCfg);
         void setSlotEmpty(ButtonSlot &slot);
         void setEmptyStyle(ButtonSlot &slot, bool apply);
+        static bool parseHexColor(const String &hex, lv_color_t &outColor);
+        void applySlotBgColor(ButtonSlot &slot, const String &hexColor);
     };
 }

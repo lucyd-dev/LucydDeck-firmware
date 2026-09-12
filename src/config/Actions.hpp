@@ -216,6 +216,7 @@ namespace config
         {
             String imageName;
             String label;
+            String backgroundColor;
             ActionSequence click;
             ActionSequence longPress;
         };
