@@ -236,6 +236,7 @@ namespace config
             ButtonConfig btnConfig;
 
             btnConfig.imageName = btnObj["imageName"].as<String>();
+            btnConfig.label = btnObj["label"].as<String>();
 
             JsonArray clickSeq = btnObj["click"].as<JsonArray>();
             btnConfig.click = parseActionSequence(clickSeq);
