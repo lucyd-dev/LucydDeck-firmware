@@ -33,32 +33,33 @@ void setup()
     Serial0.begin(115200);
     Serial0.setDebugOutput(true);
     Serial0.println("--- Setup Start ---");
-    
+
     board.init();
     displayManager.ifAvoidTearing(board.getBoard());
     board.begin();
-    
-    usbManager.setPacketCallback([](usb::Command command, const uint16_t sequence, const uint8_t *data, size_t len)
+
+    usbManager.setPacketCallback([](usb::OpCode opCode, const uint16_t sequence, const uint8_t *data, size_t len)
     {
-        dispatcher.onPacket(command, sequence, data, len);
+        dispatcher.onPacket(opCode, sequence, data, len);
     });
     usbManager.begin();
-    
+
     storage.begin();
     configManager.begin();
-    
+
     displayManager.setButtonCallback(&onButtonPress);
     displayManager.initializeLVGL(board.getBoard());
     displayManager.renderStartupScreen();
-    
+
     Serial0.println("--- Setup Complete ---");
     Serial0.println("LucydDeck Firmware started");
-    Serial0.printf("Firmware Version: %s\n", VERSION);
-    Serial0.printf("Device Name: %s\n", DEVICE_NAME);
-    
+    Serial0.printf("Firmware Version: %s\n", FW_VERSION);
+    Serial0.printf("Protocol Version: %u\n", static_cast<unsigned int>(PROTOCOL_VERSION));
+    Serial0.printf("Board: %s\n", BOARD_NAME);
+
     delay(800);
     render();
-    
+
 }
 
 bool wasConnected = false;

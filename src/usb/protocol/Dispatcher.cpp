@@ -2,6 +2,7 @@
 // Copyright (c) 2024 LucydDev
 
 #include "Dispatcher.hpp"
+#include "config/Actions.hpp"
 
 namespace usb
 {
@@ -10,28 +11,29 @@ namespace usb
         Dispatcher::Dispatcher(usb::UsbManager &usbManager, hardware::Storage &storage,
                                config::ConfigManager &configManager, core::DeckController &deck)
             : usbManager(usbManager), storage(storage), configManager(configManager), deck(deck),
-              deviceInfo(usbManager),
+              deviceInfo(usbManager, storage),
               profiles(usbManager, storage, configManager, deck),
               fileTransfer(storage, configManager),
               queries(usbManager, storage)
         {
         }
 
-        void Dispatcher::onPacket(usb::Command command, const uint16_t sequence, const uint8_t *data, size_t len)
+        void Dispatcher::onPacket(OpCode opCode, const uint16_t sequence, const uint8_t *data, size_t len)
         {
             (void)sequence;
 
-            switch (command)
+            switch (opCode)
             {
-            case usb::CMD_VERSION:
-            case usb::CMD_DEVICE_NAME:
-            case usb::CMD_BOARD_INFO:
-                deviceInfo.handle(command);
+            case usb::CMD_PING:
+                usbManager.sendAck();
                 break;
-            case usb::CMD_IMAGE_LIST:
+            case usb::CMD_GET_DEVICE_INFO:
+                deviceInfo.handle(opCode);
+                break;
+            case usb::CMD_GET_IMAGES_LIST:
                 queries.sendImageList();
                 break;
-            case usb::CMD_PROFILES_LIST:
+            case usb::CMD_GET_PROFILES_LIST:
                 profiles.sendProfilesList();
                 break;
             case usb::CMD_PROFILE_CREATE:
@@ -55,10 +57,20 @@ namespace usb
             case usb::CMD_FILE_CANCEL:
                 reply(fileTransfer.cancel());
                 break;
-            case usb::CMD_NAVIGATE:
-                reply(deck.navigate(payloadString(data, len)));
+            case usb::CMD_SET_ACTIVE_PROFILE:
+                reply(deck.setActiveProfile(payloadString(data, len)));
                 break;
+            case usb::CMD_SET_ACTIVE_PAGE:
+            {
+                std::optional<uint8_t> pageId = config::actions::parsePageTarget(payloadString(data, len));
+                if (!pageId.has_value())
+                    reply(usb::ErrorCode::ERR_UNKNOWN_ACTION);
+                else
+                    reply(deck.setActivePage(*pageId));
+                break;
+            }
             default:
+                Serial0.printf("[WARN] Unknown command received: 0x%02X\n", static_cast<uint8_t>(opCode));
                 reply(usb::ErrorCode::ERR_UNKNOWN_COMMAND);
                 break;
             }

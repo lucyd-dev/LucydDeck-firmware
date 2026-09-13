@@ -13,37 +13,26 @@ namespace core
     {
     }
 
-    usb::ErrorCode DeckController::navigate(const String &payload)
+    usb::ErrorCode DeckController::setActiveProfile(const String &profileName)
     {
-        std::optional<ActionData> parsed = parseActionString(payload);
-        if (!parsed.has_value())
-            return usb::ErrorCode::ERR_UNKNOWN_ACTION;
-
-        if (std::holds_alternative<PageAction>(*parsed))
+        if (!config.loadProfile(profileName))
         {
-            const PageAction &page = std::get<PageAction>(*parsed);
-            if (!config.loadPage(page.targetPage))
-            {
-                Serial0.println("[ERR] Failed to load page");
-                return usb::ErrorCode::ERR_PAGE_LOAD;
-            }
-            render();
-            return usb::ErrorCode::OK;
+            Serial0.println("[ERR] Failed to load profile");
+            return usb::ErrorCode::ERR_PROFILE_LOAD;
         }
+        render();
+        return usb::ErrorCode::OK;
+    }
 
-        if (std::holds_alternative<ProfileAction>(*parsed))
+    usb::ErrorCode DeckController::setActivePage(uint8_t pageId)
+    {
+        if (!config.loadPage(pageId))
         {
-            const ProfileAction &profile = std::get<ProfileAction>(*parsed);
-            if (!config.loadProfile(profile.targetProfile))
-            {
-                Serial0.println("[ERR] Failed to load profile");
-                return usb::ErrorCode::ERR_PROFILE_LOAD;
-            }
-            render();
-            return usb::ErrorCode::OK;
+            Serial0.println("[ERR] Failed to load page");
+            return usb::ErrorCode::ERR_PAGE_LOAD;
         }
-
-        return usb::ErrorCode::ERR_UNKNOWN_ACTION;
+        render();
+        return usb::ErrorCode::OK;
     }
 
     bool DeckController::handleInternal(const config::actions::ActionData &action)
@@ -51,25 +40,13 @@ namespace core
         if (std::holds_alternative<PageAction>(action))
         {
             const PageAction &pageAction = std::get<PageAction>(action);
-            if (!config.loadPage(pageAction.targetPage))
-            {
-                Serial0.println("[ERR] Failed to load page");
-                return false;
-            }
-            render();
-            return true;
+            return setActivePage(pageAction.targetPage) == usb::ErrorCode::OK;
         }
 
         if (std::holds_alternative<ProfileAction>(action))
         {
             const ProfileAction &profileAction = std::get<ProfileAction>(action);
-            if (!config.loadProfile(profileAction.targetProfile))
-            {
-                Serial0.println("[ERR] Failed to load profile");
-                return false;
-            }
-            render();
-            return true;
+            return setActiveProfile(profileAction.targetProfile) == usb::ErrorCode::OK;
         }
 
         return false;

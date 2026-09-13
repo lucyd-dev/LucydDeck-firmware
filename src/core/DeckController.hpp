@@ -14,7 +14,8 @@ namespace core
     {
     public:
         DeckController(config::ConfigManager &config, display::DisplayManager &display);
-        usb::ErrorCode navigate(const String &payload);
+        usb::ErrorCode setActiveProfile(const String &profileName);
+        usb::ErrorCode setActivePage(uint8_t pageId);
         bool handleInternal(const config::actions::ActionData &action);
         void onProfileRenamed(const String &oldName, const String &newName);
         void onProfileDeleted(const String &name);

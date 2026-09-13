@@ -8,7 +8,7 @@
 #include <CRC32.h>
 #include <vector>
 #include <optional>
-#include "usb/Commands.hpp"
+#include "usb/OpCodes.hpp"
 #include "usb/Errors.hpp"
 
 namespace hardware
@@ -18,7 +18,7 @@ namespace hardware
     public:
         static constexpr const char *IMAGE_DIR = "/icons/";
         static constexpr const char *PROFILES_DIR = "/profiles/";
-        
+
         Storage();
         ~Storage();
         void begin();
@@ -28,6 +28,7 @@ namespace hardware
         bool fileExists(const String &path);
         std::vector<String> listDir(const String &path, bool onlyDirs = false);
         uint32_t calculateFileCRC(File &file);
+        uint32_t freeSpaceKb();
         File openFile(const String &path, const char* mode = FILE_READ);
         usb::ErrorCode createDir(const String &path);
         usb::ErrorCode renameDir(const String &oldPath, const String &newPath);

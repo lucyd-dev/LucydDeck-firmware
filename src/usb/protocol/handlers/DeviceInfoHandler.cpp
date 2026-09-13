@@ -2,6 +2,7 @@
 // Copyright (c) 2024 LucydDev
 
 #include "DeviceInfoHandler.hpp"
+#include <ArduinoJson.h>
 
 namespace usb
 {
@@ -9,26 +10,36 @@ namespace usb
     {
         namespace handlers
         {
-            DeviceInfoHandler::DeviceInfoHandler(usb::UsbManager &usbManager) : usbManager(usbManager)
+            DeviceInfoHandler::DeviceInfoHandler(usb::UsbManager &usbManager, hardware::Storage &storage)
+                : usbManager(usbManager), storage(storage)
             {
             }
 
-            void DeviceInfoHandler::handle(usb::Command command)
+            void DeviceInfoHandler::handle(usb::OpCode opCode)
             {
-                switch (command)
+                switch (opCode)
                 {
-                case usb::CMD_VERSION:
-                    usbManager.sendPacket(usb::RESP_VERSION, VERSION, strlen(VERSION));
-                    break;
-                case usb::CMD_DEVICE_NAME:
-                    usbManager.sendPacket(usb::RESP_DEVICE_NAME, DEVICE_NAME, strlen(DEVICE_NAME));
-                    break;
-                case usb::CMD_BOARD_INFO:
-                    usbManager.sendPacket(usb::RESP_BOARD_INFO, BOARD_NAME, strlen(BOARD_NAME));
+                case usb::CMD_GET_DEVICE_INFO:
+                    sendDeviceInfo();
                     break;
                 default:
                     break;
                 }
+            }
+
+            void DeviceInfoHandler::sendDeviceInfo()
+            {
+                JsonDocument doc;
+                JsonObject info = doc.to<JsonObject>();
+
+                info["fw_version"] = FW_VERSION;
+                info["protocol_version"] = PROTOCOL_VERSION;
+                info["board"] = BOARD_NAME;
+                info["free_space_kb"] = storage.freeSpaceKb();
+
+                String response;
+                serializeJson(doc, response);
+                usbManager.sendPacket(usb::RESP_DEVICE_INFO, response);
             }
         }
     }

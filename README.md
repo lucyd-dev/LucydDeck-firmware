@@ -90,13 +90,13 @@ LucydDeck acts as a passive device driven by a companion desktop client. Host in
 1. **Enumerate & Open**
    Scan for `VID 0x303A` / `PID 0x822E` on the front native USB port and open the vendor interface (`Usage Page 0xFF00`, Report ID `0x06`).
 2. **Protocol Handshake**
-   Send `CMD_VERSION` (sequence `0`). Verify that the device responds with `RESP_VERSION` containing the firmware semver string (`vX.X.X`).
+   Send `CMD_PING` (sequence `0`); verify the device answers `RESP_ACK`. Then send `CMD_GET_DEVICE_INFO` and parse the `RESP_DEVICE_INFO` JSON payload for the firmware version (`fw_version`), protocol version, board, and free space.
 3. **Cache Reconciliation**
-   Issue `CMD_PROFILES_LIST` and `CMD_IMAGE_LIST` to retrieve on-device profile trees and file checksums before performing transfers.
+   Issue `CMD_GET_PROFILES_LIST` and `CMD_GET_IMAGES_LIST` to retrieve on-device profile trees and file checksums before performing transfers.
 4. **Asset Synchronization**
    Create required profiles using `CMD_PROFILE_CREATE`, then stage missing icons (`.png`) and layout definitions (`<id>.json`) via the [File Transfer Protocol](wiki/File-Transfer-Protocol.md).
 5. **Runtime Event Loop**
-   * **Active Control:** Dispatch `CMD_NAVIGATE` (`PAGE:<id>` or `PROFILE:<name>`) to control active UI state from the PC.
+   * **Active Control:** Dispatch `CMD_SET_ACTIVE_PROFILE` (`<name>`) or `CMD_SET_ACTIVE_PAGE` (`<id>`) to control active UI state from the PC.
    * **Plugin Handling:** Continuously listen for incoming `EVT_ACTION_TRIGGERED` reports to execute custom desktop actions (e.g., OBS scene switches, mute toggles, Discord events).
 
 ## 📜 Developer & Integration Documentation

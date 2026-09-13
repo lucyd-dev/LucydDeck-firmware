@@ -10,14 +10,13 @@ namespace usb
     // Wire Protocol opcode table (authoritative — see wiki/ USB-Protocol.md).
     // Host→Device opcodes have bit 7 = 0; Device→Host opcodes have bit 7 = 1.
 
-    enum Command : uint8_t
+    enum OpCode : uint8_t
     {
-        // 0x0X device info (host→device, no payload)
-        CMD_VERSION = 0x01,        // response: RESP_VERSION
-        CMD_DEVICE_NAME = 0x02,    // response: RESP_DEVICE_NAME
-        CMD_BOARD_INFO = 0x03,     // response: RESP_BOARD_INFO
-        CMD_IMAGE_LIST = 0x04,     // response: RESP_IMAGE_LIST
-        CMD_PROFILES_LIST = 0x05,  // response: RESP_PROFILES_LIST
+        // 0x0X device info (host→device)
+        CMD_PING = 0x00,            // heartbeat, no payload → response: RESP_ACK
+        CMD_GET_DEVICE_INFO = 0x01, // response: RESP_DEVICE_INFO
+        CMD_GET_IMAGES_LIST = 0x02,      // response: RESP_IMAGES_LIST
+        CMD_GET_PROFILES_LIST = 0x03,   // response: RESP_PROFILES_LIST
 
         // 0x2X profile operations (host→device)
         CMD_PROFILE_CREATE = 0x20, // data: profile name (string)
@@ -31,14 +30,13 @@ namespace usb
         CMD_FILE_CANCEL = 0x33,    // data: none
 
         // 0x4X navigation (host→device)
-        CMD_NAVIGATE = 0x40,       // data: "PAGE:<id>" or "PROFILE:<name>"
+        CMD_SET_ACTIVE_PROFILE = 0x40, // data: profile name (string)
+        CMD_SET_ACTIVE_PAGE = 0x41,    // data: page id (string)
 
         // 0x8X device info responses (device→host)
-        RESP_VERSION = 0x81,       // data: version string
-        RESP_DEVICE_NAME = 0x82,   // data: device name string
-        RESP_BOARD_INFO = 0x83,    // data: board info string
-        RESP_IMAGE_LIST = 0x84,    // data: JSON array (may be M-bit stream)
-        RESP_PROFILES_LIST = 0x85, // data: JSON array (may be M-bit stream)
+        RESP_DEVICE_INFO = 0x80,   // data: JSON object (fw_version, protocol_version, board, free_space_kb)
+        RESP_IMAGES_LIST = 0x81,    // data: JSON array (may be M-bit stream)
+        RESP_PROFILES_LIST = 0x82, // data: JSON array (may be M-bit stream)
 
         // 0xAX events (device→host, unsolicited)
         EVT_ACTION_TRIGGERED = 0xA0, // data: action string verbatim

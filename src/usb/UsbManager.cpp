@@ -60,7 +60,7 @@ namespace usb
     {
         Serial.onEvent(SerialEventCallback);
         USB.onEvent(usbEventCallback);
-        
+
         Serial.begin();
         keyboard.begin();
         consumer.begin();
@@ -81,7 +81,7 @@ namespace usb
             actionTaskHandle = nullptr;
         }
     }
-    
+
     void UsbManager::loop()
     {
         customHIDDevice.loop();
@@ -104,7 +104,7 @@ namespace usb
             break;
         }
     }
-    
+
     void UsbManager::usbEventCallback(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
     {
         if (event_base != ARDUINO_USB_EVENTS)
@@ -286,9 +286,13 @@ namespace usb
 
     void UsbManager::executeCmd(const CmdAction &action)
     {
+        String command = action.command;
+        if (command.startsWith(F("CMD:")))
+            command = command.substring(4);
+
 #if CORE_DEBUG_LEVEL >= 4
-        Serial0.printf("[ACT] cmd='%s'\n", action.command.c_str());
+        Serial0.printf("[ACT] cmd='%s'\n", command.c_str());
 #endif
-        customHIDDevice.sendPacket(EVT_ACTION_TRIGGERED, action.command.c_str(), action.command.length());
+        sendPacket(EVT_ACTION_TRIGGERED, command);
     }
 }

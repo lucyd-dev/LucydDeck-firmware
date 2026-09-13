@@ -6,7 +6,7 @@
 #include <Arduino.h>
 #include <functional>
 #include <span>
-#include "Commands.hpp"
+#include "OpCodes.hpp"
 #include "Errors.hpp"
 
 namespace usb
@@ -39,9 +39,9 @@ namespace usb
         ~CustomHIDDevice();
         void begin();
         void loop();
-        using PacketCallback = std::function<void(Command, const uint16_t sequence, const uint8_t *data, size_t len)>;
+        using PacketCallback = std::function<void(OpCode, const uint16_t sequence, const uint8_t *data, size_t len)>;
         void setPacketCallback(PacketCallback cb) { packetCallback = cb; }
-        bool sendPacket(uint8_t command, const char *data, size_t len);
+        bool sendPacket(OpCode opCode, const char *data, size_t len);
         void sendAck();
         void sendError(ErrorCode error);
         void resetSequence() { lastSequence = 0; sequenceInitialized = false; }
@@ -58,6 +58,6 @@ namespace usb
         static void vendorEventCallback(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
         void onOutput(const Packet &packet);
         void handlePacket(const Packet &packet);
-        bool sendSinglePacket(uint8_t command, uint16_t sequence, const char *data, size_t len);
+        bool sendSinglePacket(OpCode command, uint16_t sequence, const char *data, size_t len);
     };
 }

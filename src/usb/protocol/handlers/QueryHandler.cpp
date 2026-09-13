@@ -41,7 +41,7 @@ namespace usb
 
                 String response;
                 serializeJson(doc, response);
-                usbManager.sendPacket(usb::RESP_IMAGE_LIST, response.c_str(), response.length());
+                usbManager.sendPacket(usb::RESP_IMAGES_LIST, response);
             }
         }
     }

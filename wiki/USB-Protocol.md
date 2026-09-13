@@ -1,6 +1,6 @@
-# USB Protocol — Packet & Framing Specification (v2)
+# USB Protocol — Packet & Framing Specification
 
-This page defines the byte-level protocol carried over the **vendor HID interface**. All constants are taken from [`Commands.hpp`](../src/usb/Commands.hpp), [`Errors.hpp`](../src/usb/Errors.hpp), and [`CustomHIDDevice.hpp`](../src/usb/CustomHIDDevice.hpp).
+This page defines the byte-level protocol carried over the **vendor HID interface**. All constants are taken from [`OpCodes.hpp`](../src/usb/OpCodes.hpp), [`Errors.hpp`](../src/usb/Errors.hpp), and [`CustomHIDDevice.hpp`](../src/usb/CustomHIDDevice.hpp).
 
 ## 1. HID Report Anatomy
 
@@ -60,11 +60,12 @@ seq = k | (k < n - 1 ? 0x8000 : 0)
 ```
 Host → Device                       Device → Host
 ─────────────────────               ─────────────────────
-[0x01, 00 00, ···]  CMD_VERSION --> [0x81, 00 00, "v0.1.0"]
-[0x05, 00 01, ···]  PROFILES_LIST -> [0x85, 80 00, <chunk0>]   (M=1)
-                                      [0x85, 80 01, <chunk1>]   (M=1)
-                                      [0x85, 00 02, <chunk2>]   (M=0, last)
-[0x40, 00 02, "PAGE:2"] ---------->  [0xFF, 00 00]              (ACK)
+[0x00, 00 00, ···]  CMD_PING ----->  [0xFF, 00 00]              (ACK, heartbeat)
+[0x01, 00 01, ···]  GET_DEVICE_INFO -> [0x80, 00 00, {"fw_version":"v0.1.0",...}]
+[0x03, 00 02, ···]  PROFILES_LIST -> [0x82, 80 00, <chunk0>]   (M=1)
+                                      [0x82, 80 01, <chunk1>]   (M=1)
+                                      [0x82, 00 02, <chunk2>]   (M=0, last)
+[0x40, 00 03, "gaming"] ---------->  [0xFF, 00 00]              (ACK, SET_ACTIVE_PROFILE)
 ```
 
 ### Host-side reassembly rule (no firmware code)
@@ -73,17 +74,16 @@ Response streams are turn-based — the host has at most **one outstanding reque
 
 ## 4. Opcode Table
 
-All opcodes come from `enum Command` in [`Commands.hpp`](../src/usb/Commands.hpp).
+All opcodes come from `enum Command` in [`OpCodes.hpp`](../src/usb/OpCodes.hpp).
 
 ### Host → Device (`0x00..0x7F`)
 
 | Opcode | Name | Payload | Response |
 |---|---|---|---|
-| `0x01` | `CMD_VERSION` | — | `RESP_VERSION` |
-| `0x02` | `CMD_DEVICE_NAME` | — | `RESP_DEVICE_NAME` |
-| `0x03` | `CMD_BOARD_INFO` | — | `RESP_BOARD_INFO` |
-| `0x04` | `CMD_IMAGE_LIST` | — | `RESP_IMAGE_LIST` |
-| `0x05` | `CMD_PROFILES_LIST` | — | `RESP_PROFILES_LIST` |
+| `0x00` | `CMD_PING` | — | `RESP_ACK` |
+| `0x01` | `CMD_GET_DEVICE_INFO` | — | `RESP_DEVICE_INFO` |
+| `0x02` | `CMD_GET_IMAGES_LIST` | — | `RESP_IMAGES_LIST` |
+| `0x03` | `CMD_GET_PROFILES_LIST` | — | `RESP_PROFILES_LIST` |
 | `0x20` | `CMD_PROFILE_CREATE` | profile name | `RESP_ACK` / `RESP_ERROR` |
 | `0x21` | `CMD_PROFILE_RENAME` | `old:new` | `RESP_ACK` / `RESP_ERROR` |
 | `0x22` | `CMD_PROFILE_DELETE` | profile name | `RESP_ACK` / `RESP_ERROR` |
@@ -91,22 +91,26 @@ All opcodes come from `enum Command` in [`Commands.hpp`](../src/usb/Commands.hpp
 | `0x31` | `CMD_FILE_CHUNK` | ≤ 60 B binary | `RESP_ACK` / `RESP_ERROR` |
 | `0x32` | `CMD_FILE_END` | CRC32 (4 B, BE) | `RESP_ACK` / `RESP_ERROR` |
 | `0x33` | `CMD_FILE_CANCEL` | — | `RESP_ACK` / `RESP_ERROR` |
-| `0x40` | `CMD_NAVIGATE` | `PAGE:<id>` or `PROFILE:<name>` | `RESP_ACK` / `RESP_ERROR` |
+| `0x40` | `CMD_SET_ACTIVE_PROFILE` | profile name | `RESP_ACK` / `RESP_ERROR` |
+| `0x41` | `CMD_SET_ACTIVE_PAGE` | page id | `RESP_ACK` / `RESP_ERROR` |
+
+`CMD_PING` is a zero-payload heartbeat; the device answers it with `RESP_ACK` immediately.
 
 ### Device → Host (`0x80..0xFF`)
 
 | Opcode | Name | Payload | Notes |
 |---|---|---|---|
-| `0x81` | `RESP_VERSION` | version string | |
-| `0x82` | `RESP_DEVICE_NAME` | name string | |
-| `0x83` | `RESP_BOARD_INFO` | board string | |
-| `0x84` | `RESP_IMAGE_LIST` | JSON array | may be an M-bit stream |
-| `0x85` | `RESP_PROFILES_LIST` | JSON array | may be an M-bit stream |
+| `0x80` | `RESP_DEVICE_INFO` | JSON object | may be an M-bit stream |
+| `0x81` | `RESP_IMAGE_LIST` | JSON array | may be an M-bit stream |
+| `0x82` | `RESP_PROFILES_LIST` | JSON array | may be an M-bit stream |
 | `0xA0` | `EVT_ACTION_TRIGGERED` | action string | unsolicited, never ACKed |
 | `0xFE` | `RESP_ERROR` | 1-byte ErrorCode | |
 | `0xFF` | `RESP_ACK` | header-only | |
 
-`EVT_ACTION_TRIGGERED` is emitted when a button runs a `CMD:` / plugin action; the action string is forwarded verbatim (`UsbManager::executeCmd`).
+`RESP_DEVICE_INFO` (`CMD_GET_DEVICE_INFO`) returns a JSON object with:
+`fw_version` (firmware semver string), `protocol_version` (integer, from the `PROTOCOL_VERSION` build flag), `board` (board name string), and `free_space_kb` (SD card free space in KiB, computed at runtime).
+
+`EVT_ACTION_TRIGGERED` is emitted when a button runs a `CMD:` action; the resolved command string is forwarded (`UsbManager::executeCmd`) with the `CMD:` prefix stripped (a `CMD:obs:scene:Scene 1` action sends `obs:scene:Scene 1`). Unknown namespaces never produce an event — the device drops them at parse time.
 
 ## 5. Acknowledgement Contract
 
@@ -116,7 +120,10 @@ Every host command is answered with **exactly one** device frame:
 - `RESP_ACK` on success for mutating commands,
 - `RESP_ERROR` + 1-byte `ErrorCode` on failure.
 
-An **unknown** host-direction opcode is answered with `RESP_ERROR ERR_UNKNOWN_COMMAND` (`0x02`) (`Dispatcher`).
+Unknown-opcode handling is **directional**:
+
+- **Host → Device:** a host-direction opcode the device does not recognize is answered with `RESP_ERROR ERR_UNKNOWN_COMMAND` (`0x02`) (`Dispatcher`).
+- **Device → Host:** the device drops unrecognized content rather than forwarding it — unknown action namespaces are discarded when the page config is parsed, and the firmware only ever emits defined device-direction opcodes. Unknown actions therefore never become an `EVT_ACTION_TRIGGERED` frame for the host to deal with.
 
 ## 6. Error Codes
 
@@ -145,9 +152,9 @@ An **unknown** host-direction opcode is answered with `RESP_ERROR ERR_UNKNOWN_CO
 | `0x27` | `ERR_CRC_MISSING` | `CMD_FILE_END` payload shorter than 4 bytes |
 | `0x28` | `ERR_CRC` | computed CRC32 ≠ expected; staging file discarded |
 | `0x29` | `ERR_FINALIZE` | rename of staging → target failed after CRC OK |
-| `0x30` | `ERR_UNKNOWN_ACTION` | `CMD_NAVIGATE` payload malformed / not `PAGE`/`PROFILE` |
-| `0x31` | `ERR_PAGE_LOAD` | `PAGE:<id>` target missing or unparseable |
-| `0x32` | `ERR_PROFILE_LOAD` | `PROFILE:<name>` target missing or empty |
+| `0x30` | `ERR_UNKNOWN_ACTION` | `CMD_SET_ACTIVE_PAGE` payload not a valid page id |
+| `0x31` | `ERR_PAGE_LOAD` | page target missing / failed to load |
+| `0x32` | `ERR_PROFILE_LOAD` | profile target missing / failed to load |
 
 ## 7. TX Behavior Worth Knowing
 
@@ -158,9 +165,9 @@ An **unknown** host-direction opcode is answered with `RESP_ERROR ERR_UNKNOWN_CO
 
 | File | Responsibility |
 |---|---|
-| `src/usb/Commands.hpp` | opcode enum + `PathType` + payload grammars |
+| `src/usb/OpCodes.hpp` | opcode enum + `PathType` + payload grammars |
 | `src/usb/Errors.hpp` | `ErrorCode` enum (1-byte error table) |
 | `src/usb/CustomHIDDevice.hpp/.cpp` | framing, M-bit EOM, sequence & direction enforcement, TX/RX |
 | `src/usb/protocol/Dispatcher.hpp/.cpp` | opcode → handler routing, ACK/ERROR emission |
 | `src/usb/protocol/handlers/*` | DeviceInfo / Profile / FileTransfer / Query handlers |
-| `src/core/DeckController.hpp/.cpp` | `CMD_NAVIGATE`, internal actions, reselect/re-render |
+| `src/core/DeckController.hpp/.cpp` | `CMD_SET_ACTIVE_PROFILE` / `CMD_SET_ACTIVE_PAGE`, internal actions, reselect/re-render |
