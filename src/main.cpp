@@ -21,7 +21,6 @@ core::DeckController deckController(configManager, displayManager);
 usb::protocol::Dispatcher dispatcher(usbManager, storage, configManager, deckController);
 
 void onButtonPress(uint8_t id, lv_event_code_t code);
-void render();
 
 void render()
 {
@@ -51,6 +50,7 @@ void setup()
     displayManager.initializeLVGL(board.getBoard());
     displayManager.renderStartupScreen();
 
+
     Serial0.println("--- Setup Complete ---");
     Serial0.println("LucydDeck Firmware started");
     Serial0.printf("Firmware Version: %s\n", FW_VERSION);
@@ -59,7 +59,6 @@ void setup()
 
     delay(800);
     render();
-
 }
 
 bool wasConnected = false;
@@ -82,12 +81,12 @@ void loop()
     else if (!wasConnected && connected)
     {
         if (!configManager.getCurrentConfig().empty())
-            displayManager.renderButtonsFromConfig(configManager.getCurrentConfig());
+            render();
     }
     wasConnected = connected;
 
     if (displayManager.isRenderPending() && !configManager.getCurrentConfig().empty())
-        displayManager.renderButtonsFromConfig(configManager.getCurrentConfig());
+        render();
 }
 
 void onButtonPress(uint8_t id, lv_event_code_t code)
