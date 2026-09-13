@@ -22,7 +22,7 @@ namespace usb
         void loop();
         using PacketCallback = CustomHIDDevice::PacketCallback;
         void setPacketCallback(const PacketCallback &cb) { customHIDDevice.setPacketCallback(cb); }
-        bool sendPacket(uint8_t command, const char *data, size_t len) { return customHIDDevice.sendPacket(command, data, len); }
+        bool sendPacket(OpCode opCode, String payload) { return customHIDDevice.sendPacket(opCode, payload.c_str(), payload.length()); }
         void sendAck() { customHIDDevice.sendAck(); }
         void sendError(const ErrorCode error) { customHIDDevice.sendError(error); }
         bool isConnected() const { return usbConnected; }

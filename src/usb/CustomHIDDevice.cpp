@@ -24,7 +24,7 @@ namespace usb
             Serial0.println("[ERR] Failed to create USB TX mutex!");
         }
     }
-    
+
     CustomHIDDevice::~CustomHIDDevice()
     {
         instance = nullptr;
@@ -89,7 +89,7 @@ namespace usb
         if (packet.length < HEADER_SIZE)
             return;
 
-        auto command = static_cast<Command>(packet.data[0]);
+        auto opCode = static_cast<OpCode>(packet.data[0]);
         uint16_t sequence = packet.data[1] << 8 | packet.data[2];
         const uint8_t *payloadPtr = packet.data + 3;
 
@@ -120,10 +120,10 @@ namespace usb
         sequenceInitialized = true;
 
         if (packetCallback)
-            packetCallback(command, sequence, payloadPtr, packet.length - HEADER_SIZE);
+            packetCallback(opCode, sequence, payloadPtr, packet.length - HEADER_SIZE);
     }
 
-    bool CustomHIDDevice::sendPacket(uint8_t command, const char *data, size_t len)
+    bool CustomHIDDevice::sendPacket(OpCode opCode, const char *data, size_t len)
     {
         if (txMutex == nullptr || xSemaphoreTakeRecursive(txMutex, TX_LOCK_TIMEOUT_MS) != pdTRUE)
         {
@@ -147,7 +147,7 @@ namespace usb
             if (chunkIndex < totalChunks - 1)
                 sequence |= 0x8000;
 
-            if (!sendSinglePacket(command, sequence, chunkPtr, chunkLen))
+            if (!sendSinglePacket(opCode, sequence, chunkPtr, chunkLen))
             {
                 Serial0.printf("[ERR] Failed to send chunk (len:%d)\n", chunkLen);
                 xSemaphoreGiveRecursive(txMutex);
@@ -162,7 +162,7 @@ namespace usb
         return true;
     }
 
-    bool CustomHIDDevice::sendSinglePacket(uint8_t command, uint16_t sequence, const char *data, size_t len)
+    bool CustomHIDDevice::sendSinglePacket(OpCode opCode, uint16_t sequence, const char *data, size_t len)
     {
         if (txMutex == nullptr || xSemaphoreTakeRecursive(txMutex, TX_LOCK_TIMEOUT_MS) != pdTRUE)
         {
@@ -178,7 +178,7 @@ namespace usb
         }
 
         memset(txBuffer, 0, BUFFER_SIZE);
-        txBuffer[0] = command;                // Byte 0: Command
+        txBuffer[0] = opCode;                // Byte 0: Command
         txBuffer[1] = (sequence >> 8) & 0xFF; // Byte 1: Sequence High
         txBuffer[2] = sequence & 0xFF;
 

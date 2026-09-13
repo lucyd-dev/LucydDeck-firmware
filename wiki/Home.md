@@ -50,9 +50,11 @@ Defined in `platformio.ini` under `[common]`:
 
 | Macro | Value | Returned by |
 |---|---|---|
-| `VERSION` | `vX.X.X` | `RESP_VERSION` |
-| `DEVICE_NAME` | `LucydDeck` | `RESP_DEVICE_NAME` |
-| `BOARD_NAME` | `WAVESHARE_ESP32_S3_TOUCH_LCD_4_3` | `RESP_BOARD_INFO` |
+| `FW_VERSION (extra_script)` | `vX.X.X` | `RESP_DEVICE_INFO.fw_version` |
+| `BOARD_NAME` | `WAVESHARE_ESP32_S3_TOUCH_LCD_4_3` | `RESP_DEVICE_INFO.board` |
+| `PROTOCOL_VERSION` | `1` | `RESP_DEVICE_INFO.protocol_version` |
+
+`RESP_DEVICE_INFO` is the JSON object returned by `CMD_GET_DEVICE_INFO`; it also carries `free_space_kb` (SD card free space in KiB, computed at runtime rather than a build constant).
 
 ## Documentation Map
 
@@ -66,7 +68,7 @@ Defined in `platformio.ini` under `[common]`:
 ## Quick Start (Host App Checklist)
 
 1. Open vendor HID usage page `0xFF00`, report ID `0x06`; incoming/outgoing reports are 64 bytes.
-2. Send `CMD_VERSION` with sequence `0`; expect `RESP_VERSION` + `vX.X.X` back. (Sequence doesn't matter on the very first frame.)
-3. Send `CMD_PROFILES_LIST` / `CMD_IMAGE_LIST` to reconcile hashes.
+2. Send `CMD_PING` with sequence `0`; expect `RESP_ACK`. To read the firmware version, send `CMD_GET_DEVICE_INFO` and parse the `RESP_DEVICE_INFO` JSON payload. (Sequence doesn't matter on the very first frame.)
+3. Send `CMD_GET_PROFILES_LIST` / `CMD_GET_IMAGES_LIST` to reconcile hashes.
 4. Create profiles with `CMD_PROFILE_CREATE`, then upload page configs and icons with the file-transfer flow.
-5. Navigate with `CMD_NAVIGATE` (`PAGE:<id>` / `PROFILE:<name>`), and listen for `EVT_ACTION_TRIGGERED` when the user presses buttons.
+5. Switch profile / page with `CMD_SET_ACTIVE_PROFILE` (`<name>`) and `CMD_SET_ACTIVE_PAGE` (`<id>`), and listen for `EVT_ACTION_TRIGGERED` when the user presses buttons.

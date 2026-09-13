@@ -34,6 +34,11 @@ namespace hardware
         Serial0.printf("SD Card Size: %lluMB\n", cardSize);
     }
 
+    uint32_t Storage::freeSpaceKb()
+    {
+        return static_cast<uint32_t>((SD.totalBytes() - SD.usedBytes()) / 1024);
+    }
+
     bool Storage::validateName(const String &name)
     {
         if (name.isEmpty())

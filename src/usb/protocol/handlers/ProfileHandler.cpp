@@ -49,7 +49,7 @@ namespace usb
                     return usb::ErrorCode::ERR_INVALID_PATH;
 
                 usb::ErrorCode error = storage.deleteDirRecursive(hardware::Storage::PROFILES_DIR + name);
-                
+
                 deck.onProfileDeleted(name);
                 return error;
             }
@@ -88,7 +88,7 @@ namespace usb
 
                 String response;
                 serializeJson(doc, response);
-                usbManager.sendPacket(usb::RESP_PROFILES_LIST, response.c_str(), response.length());
+                usbManager.sendPacket(usb::RESP_PROFILES_LIST, response);
             }
 
             void ProfileHandler::splitString(const String &input, char delimiter, String &part1, String &part2)

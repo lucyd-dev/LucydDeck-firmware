@@ -20,7 +20,7 @@ The firmware **never** replaces the destination in-place: it streams into a `<ta
 
 ## 2. `CMD_FILE_START` (0x30) — Path Types
 
-The payload layout is `[ pathType (1 byte) ][ path (string) ]`. `PathType` lives in [`Commands.hpp`](../src/usb/Commands.hpp).
+The payload layout is `[ pathType (1 byte) ][ path (string) ]`. `PathType` lives in [`OpCodes.hpp`](../src/usb/OpCodes.hpp).
 
 | pathType | Constant | Grammar |
 |---|---|---|
@@ -33,7 +33,7 @@ The payload layout is `[ pathType (1 byte) ][ path (string) ]`. `PathType` lives
 - Both halves must pass `Storage::validateName` (non-empty, not `.`/`..`, no `/` or `\`, no control characters) — otherwise `ERR_INVALID_PATH` (`0x10`).
 - The filename must match **`^[0-9]+\.json$`** — the canonical page naming — otherwise `ERR_INVALID_PAGE_NAME` (`0x11`).
 - The profile directory **must already exist** (create it first with `CMD_PROFILE_CREATE`). A missing profile yields `ERR_PROFILE_NOT_FOUND` (`0x12`) **before** any `.tmp` file is opened; there is no auto-create.
-- On success the file is committed to `/profiles/<profile>/<page.json>` and the profile's page list is refreshed, so the new page is immediately visible in `CMD_PROFILES_LIST` and navigable without a reboot (`ConfigManager::refreshProfile`).
+- On success the file is committed to `/profiles/<profile>/<page.json>` and the profile's page list is refreshed, so the new page is immediately visible in `CMD_GET_PROFILES_LIST` and navigable without a reboot (`ConfigManager::refreshProfile`).
 
 ### Icon path (`PATH_ICON`)
 
@@ -52,7 +52,7 @@ The payload layout is `[ pathType (1 byte) ][ path (string) ]`. `PathType` lives
 - CRC mismatch (computed ≠ expected) → `ERR_CRC` (`0x28`) and the staging file is deleted.
 - CRC match → staging file is renamed over the target and `RESP_ACK` is returned (`Storage::finishFile`).
 
-**CRC-32 contract:** the standard IEEE/zlib CRC-32 (polynomial `0x04C11DB7`, reflected, init `0xFFFFFFFF`, final XOR `0xFFFFFFFF`) — the same check value used by PNG/zlib. It is computed by the `bakercp/CRC32` library with its default parameters, matching `Storage::calculateFileCRC` which is what the firmware uses to produce the `CMD_IMAGE_LIST` / `CMD_PROFILES_LIST` hashes. A host that uploads files walks the same algorithm over the exact byte sequence it sends.
+**CRC-32 contract:** the standard IEEE/zlib CRC-32 (polynomial `0x04C11DB7`, reflected, init `0xFFFFFFFF`, final XOR `0xFFFFFFFF`) — the same check value used by PNG/zlib. It is computed by the `bakercp/CRC32` library with its default parameters, matching `Storage::calculateFileCRC` which is what the firmware uses to produce the `CMD_GET_IMAGES_LIST` / `CMD_GET_PROFILES_LIST` hashes. A host that uploads files walks the same algorithm over the exact byte sequence it sends.
 
 ```
 expected CRC32 (big-endian) = CRC32(chunk0 bytes ++ chunk1 bytes ++ ... ++ chunkN bytes)
@@ -86,7 +86,7 @@ seq=13  [0x32, 00 0D, 0x12 0x34 0x56 0x78]                                      
 
 ## 7. Upload-Side Best Practices (Host App)
 
-1. Query `CMD_IMAGE_LIST` / `CMD_PROFILES_LIST` first and compare `hash` values; skip files that already match.
+1. Query `CMD_GET_IMAGES_LIST` / `CMD_GET_PROFILES_LIST` first and compare `hash` values; skip files that already match.
 2. Create the target profile with `CMD_PROFILE_CREATE` (or rename an existing one) before uploading pages to it.
 3. Send chunks as large as possible (60 bytes) to reduce round-trips.
 4. Keep inter-chunk spacing well under the 1 s inactivity timeout; `RESP_ACK` for each chunk is the pacing signal.

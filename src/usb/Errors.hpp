@@ -30,7 +30,7 @@ namespace usb
         ERR_CRC_MISSING        = 0x27,
         ERR_CRC                = 0x28,
         ERR_FINALIZE           = 0x29, // .tmp → target rename failed
-        ERR_UNKNOWN_ACTION     = 0x30, // NAVIGATE payload malformed / not PAGE|PROFILE
+        ERR_UNKNOWN_ACTION     = 0x30, // SET_ACTIVE_PAGE payload not a valid page id
         ERR_PAGE_LOAD          = 0x31,
         ERR_PROFILE_LOAD       = 0x32,
     };

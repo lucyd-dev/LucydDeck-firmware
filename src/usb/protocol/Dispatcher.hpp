@@ -4,7 +4,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include "usb/Commands.hpp"
+#include "usb/OpCodes.hpp"
 #include "usb/Errors.hpp"
 #include "usb/UsbManager.hpp"
 #include "hardware/Storage.hpp"
@@ -24,7 +24,7 @@ namespace usb
         public:
             Dispatcher(usb::UsbManager &usbManager, hardware::Storage &storage,
                        config::ConfigManager &configManager, core::DeckController &deck);
-            void onPacket(usb::Command command, const uint16_t sequence, const uint8_t *data, size_t len);
+            void onPacket(OpCode opCode, const uint16_t sequence, const uint8_t *data, size_t len);
 
         private:
             usb::UsbManager &usbManager;

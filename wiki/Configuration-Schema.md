@@ -45,7 +45,7 @@ Only keys actually read by `parsePageJson` are part of the contract. All are opt
     },
     "1": {
       "imageName": "discord",
-      "click": ["discord:mute"]
+      "click": ["CMD:discord:mute"]
     },
     "3": {
       "backgroundColor": "#9802D3",
@@ -83,14 +83,13 @@ Only `PAGE` and `PROFILE` are executed internally (`isInternalAction`). There is
 
 `HID_KEY` tokens resolve through [`keyMappings.hpp`](../src/config/keyMappings.hpp) (`getKeyValue`): single characters (typed as their ASCII value), special keys (`CTRL`, `SHIFT`, `ALT`, `GUI`, arrows, `ENTER`, `ESC`, `F1`–`F24`, keypad `KP_*`, etc.), falling back to consumer-control names.
 
-### Host / Plugin actions — transparent forwarding
+### Host actions — transparent forwarding
 
 | Namespace | Format | Example | Result |
 |---|---|---|---|
 | `CMD` | `CMD:<command>` | `CMD:obs:scene:Scene 1` | `CmdAction{args}` — forwarded to host as `obs:scene:Scene 1` (the `CMD:` prefix is stripped) |
-| *(any unknown)* | `name:...` | `discord:mute` | `CmdAction{whole string}` — forwarded verbatim |
 
-When a button press produces such an action, the device sends an **`EVT_ACTION_TRIGGERED`** (`0xA0`) frame over the vendor pipe with the command string verbatim (`UsbManager::executeCmd`). The host app listens for `0xA0` device→host frames and dispatches them to its plugin layer; the event is unsolicited and never ACKed. The host-direction `CMD_NAVIGATE` opcode is the host's only way to trigger actions, and it accepts only `PAGE:`/`PROFILE:` payloads; plugin payloads are rejected with `ERR_UNKNOWN_ACTION`.
+When a button press produces such an action, the device sends an **`EVT_ACTION_TRIGGERED`** (`0xA0`) frame over the vendor pipe with the resolved command string (`UsbManager::executeCmd` — the `CMD:` prefix is stripped). The host app listens for `0xA0` device→host frames and dispatches them to its plugin layer; the event is unsolicited and never ACKed. Only `CMD:` actions are forwarded; any other namespace is dropped by the device at parse time. The host triggers internal actions over the wire with `CMD_SET_ACTIVE_PROFILE` and `CMD_SET_ACTIVE_PAGE` (see [USB-Protocol](USB-Protocol)).
 
 ### Summary table
 
@@ -98,11 +97,12 @@ When a button press produces such an action, the device sends an **`EVT_ACTION_T
 |---|---|
 | `PAGE`, `PROFILE` | firmware (internal) |
 | `HID_KEY`, `CONTROL_KEY`, `MOUSE_MOVE`, `MOUSE_CLICK`, `DELAY`, `TEXT` | firmware USB HID (local) |
-| `CMD`, unknown (`discord:*`, `obs:*`, …) | forwarded to host via `EVT_ACTION_TRIGGERED` |
+| `CMD` | forwarded to host via `EVT_ACTION_TRIGGERED` |
+| *any other namespace* | dropped at parse time |
 
 ## 4. Malformed-String Behavior
 
-`parseActionString` returns `std::nullopt` for malformed internal actions, which are silently dropped when encountered inside a page JSON `click`/`longPress`:
+`parseActionString` returns `std::nullopt` for malformed or unknown namespaces, which are silently dropped when encountered inside a page JSON `click`/`longPress`:
 
 - empty string
 - `PAGE:` with a negative id
@@ -110,8 +110,9 @@ When a button press produces such an action, the device sends an **`EVT_ACTION_T
 - `HID_KEY:` with no resolvable keys
 - `CONTROL_KEY:` with an unknown name
 - `MOUSE_CLICK:` with a button other than `LEFT`/`RIGHT`/`MIDDLE`
+- any **unknown namespace** — only `CMD:` is forwarded to the host
 
-Plugin strings (unknown namespaces) always parse successfully. (Over the wire, a malformed `CMD_NAVIGATE` payload is rejected with `ERR_UNKNOWN_ACTION` — see [USB-Protocol §6](USB-Protocol#6-error-codes).)
+(Over the wire, an unparseable `CMD_SET_ACTIVE_PAGE` payload is rejected with `ERR_UNKNOWN_ACTION` — see [USB-Protocol §6](USB-Protocol#6-error-codes).)
 
 ## 5. Validation (`parsePageJson`)
 

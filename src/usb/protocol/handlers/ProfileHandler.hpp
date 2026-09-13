@@ -4,7 +4,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include "usb/Commands.hpp"
+#include "usb/OpCodes.hpp"
 #include "usb/Errors.hpp"
 #include "usb/UsbManager.hpp"
 #include "hardware/Storage.hpp"

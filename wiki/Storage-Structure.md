@@ -36,7 +36,7 @@ Configuration and asset files live on the device's microSD card, accessed throug
 - **Pages** are all files inside a profile directory whose name matches **`^[0-9]+\.json$`**.
 - **Page ID = the leading digits of the filename** (decimal, unpadded: `0.json`, `1.json`, …, `255.json`). `ConfigManager::scanProfileDir` parses the ID with `parsePageId` and inserts `profiles[profile][id] = filename`, skipping a duplicate ID (first-sorted wins, deterministic). Non-matching files are logged and skipped — they produce no page.
 
-> Page IDs are **filename-encoded**, not enumeration-order-encoded. `CMD_PROFILES_LIST` returns the parsed `id` alongside the `filename`; a host app should always reconcile against that response.
+> Page IDs are **filename-encoded**, not enumeration-order-encoded. `CMD_GET_PROFILES_LIST` returns the parsed `id` alongside the `filename`; a host app should always reconcile against that response.
 
 ## 4. Naming Conventions & Format Rules
 
@@ -66,7 +66,7 @@ The firmware does **not** validate `.png`/`.json` content — it loads by path. 
 
 All profile ops build paths as `PROFILES_DIR + name`; no host string ever reaches `SD.*` unvalidated.
 
-## 6. Hash / Reconciliation (`CMD_IMAGE_LIST`, `CMD_PROFILES_LIST`)
+## 6. Hash / Reconciliation (`CMD_GET_IMAGES_LIST`, `CMD_GET_PROFILES_LIST`)
 
 - `/icons/` contents → `[{"filename": "<name>", "hash": <CRC32>}]` (`QueryHandler::sendImageList`). **All** files in `/icons/` are listed, regardless of extension.
 - Profiles → `[{"name": "<profile>", "pages": [{"id": <n>, "filename": "<page.json>", "hash": <CRC32>}]}]` (`ProfileHandler::sendProfilesList`).

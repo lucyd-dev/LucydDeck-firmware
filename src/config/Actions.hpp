@@ -209,7 +209,7 @@ namespace config
                 return CmdAction{args};
             }
 
-            return CmdAction{action};
+            return std::nullopt;
         }
         
         struct ButtonConfig
