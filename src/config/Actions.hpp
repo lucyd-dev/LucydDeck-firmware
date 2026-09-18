@@ -57,7 +57,7 @@ namespace config
         {
             uint8_t targetPage;
         };
-        
+
         struct ProfileAction
         {
             String targetProfile;
@@ -102,7 +102,7 @@ namespace config
                 return std::nullopt;
             return static_cast<uint8_t>(id);
         }
-        
+
         inline std::optional<ActionData> parseActionString(const String &action)
         {
             if (action.isEmpty())
@@ -118,7 +118,7 @@ namespace config
                 std::optional<uint8_t> page = parsePageTarget(args);
                 if (!page.has_value())
                     return std::nullopt;
-                
+
                 return PageAction{*page};
             }
             if (ns == "PROFILE")
@@ -211,17 +211,16 @@ namespace config
 
             return std::nullopt;
         }
-        
+
         struct ButtonConfig
         {
             String imageName;
             String label;
             String backgroundColor;
             ActionSequence click;
-            ActionSequence longPress;
         };
         using PageConfig = std::map<uint8_t, ButtonConfig>;
-        
+
         using PageList = std::map<uint8_t, String>;
         using ProfileList = std::map<String, PageList>;
     }

@@ -104,20 +104,12 @@ void onButtonPress(uint8_t id, lv_event_code_t code)
     case LV_EVENT_SHORT_CLICKED:
         seq = btnCfg.click;
         break;
-    case LV_EVENT_LONG_PRESSED:
-        seq = btnCfg.longPress;
-        break;
     default:
         return;
     }
 
     if (seq.empty())
         return;
-
-#if CORE_DEBUG_LEVEL >= 4
-    const char *eventName = (code == LV_EVENT_LONG_PRESSED) ? "LONG_PRESSED" : "SHORT_CLICKED";
-    Serial0.printf("[BTN] id=%u code=%s seq=%u\n", id, eventName, (unsigned int)seq.size());
-#endif
 
     usbManager.postSequence(seq);
 }

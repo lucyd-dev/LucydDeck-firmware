@@ -30,7 +30,6 @@ Only keys actually read by `parsePageJson` are part of the contract. All are opt
 | `buttons.<id>.backgroundColor` | string | optional background color shown on the button |
 | `buttons.<id>.label` | string | optional text label shown on the button |
 | `buttons.<id>.click` | array | sequence of plain action strings for a short click |
-| `buttons.<id>.longPress` | array | sequence of plain action strings for a long press |
 
 ### Example page config
 
@@ -40,8 +39,7 @@ Only keys actually read by `parsePageJson` are part of the contract. All are opt
     "0": {
       "imageName": "github",
       "label": "GitHub",
-      "click": ["HID_KEY:CTRL+T", "TEXT:https://github.com", "DELAY:500"],
-      "longPress": ["MOUSE_CLICK:MIDDLE,2"]
+      "click": ["HID_KEY:CTRL+T", "TEXT:https://github.com", "DELAY:500"]
     },
     "1": {
       "imageName": "discord",
@@ -102,7 +100,7 @@ When a button press produces such an action, the device sends an **`EVT_ACTION_T
 
 ## 4. Malformed-String Behavior
 
-`parseActionString` returns `std::nullopt` for malformed or unknown namespaces, which are silently dropped when encountered inside a page JSON `click`/`longPress`:
+`parseActionString` returns `std::nullopt` for malformed or unknown namespaces, which are silently dropped when encountered inside a page JSON `click`:
 
 - empty string
 - `PAGE:` with a negative id

@@ -26,7 +26,7 @@ namespace config
         if (!ensureProfileSelected())
             Serial0.println("no config found, using blank config");
     }
-    
+
     bool ConfigManager::loadPage(uint8_t pageId)
     {
         if (currentProfile.isEmpty() || profiles.find(currentProfile) == profiles.end()) {
@@ -41,7 +41,7 @@ namespace config
         currentConfig = std::move(newConfig);
         return true;
     }
-    
+
     bool ConfigManager::loadProfile(const String &profileName)
     {
         if (!hardware::Storage::validateName(profileName))
@@ -97,7 +97,7 @@ namespace config
     void ConfigManager::scanProfileDir()
     {
         std::vector<String> profilesList = storage.listDir(hardware::Storage::PROFILES_DIR, true);
-        
+
         for (const String& profile : profilesList)
         {
             if (profiles.find(profile) != profiles.end())
@@ -241,9 +241,6 @@ namespace config
 
             JsonArray clickSeq = btnObj["click"].as<JsonArray>();
             btnConfig.click = parseActionSequence(clickSeq);
-
-            JsonArray longPressSeq = btnObj["longPress"].as<JsonArray>();
-            btnConfig.longPress = parseActionSequence(longPressSeq);
 
             outConfig[btnId] = btnConfig;
         }
