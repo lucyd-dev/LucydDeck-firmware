@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/lucyd-dev/LucydDeck-firmware/compare/v0.3.0...v0.3.1) (2026-09-18)
+
+
+### Reverts
+
+* removed longPress sequence completely ([4c46f72](https://github.com/lucyd-dev/LucydDeck-firmware/commit/4c46f7251db71dec4d15e593ba82ec763b7fce9d))
+
 ## [0.3.0](https://github.com/lucyd-dev/LucydDeck-firmware/compare/v0.2.0...v0.3.0) (2026-09-13)
 
 
