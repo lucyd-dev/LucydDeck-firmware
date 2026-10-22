@@ -25,6 +25,7 @@ namespace usb
         bool sendPacket(OpCode opCode, String payload) { return customHIDDevice.sendPacket(opCode, payload.c_str(), payload.length()); }
         void sendAck() { customHIDDevice.sendAck(); }
         void sendError(const ErrorCode error) { customHIDDevice.sendError(error); }
+        void resetSequence() { customHIDDevice.resetSequence(); }
         bool isConnected() const { return usbConnected; }
         bool postSequence(const config::actions::ActionSequence &sequence);
         bool postInternal(const config::actions::ActionData &action);

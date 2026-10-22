@@ -41,9 +41,14 @@ Sequence counters are **per-direction** and independent. The 16-bit BE sequence 
 
 ### Host → Device
 
-- Resets to `0` on connect / `ARDUINO_USB_STARTED_EVENT` / `ARDUINO_USB_RESUME_EVENT` (`UsbManager` → `CustomHIDDevice::resetSequence`).
-- The firmware accepts a packet when `sequence == lastSequence + 1`, **except** the very first packet after a reset (when `lastSequence == 0`, any value is accepted and becomes the new baseline).
+- The firmware clears its baseline on `ARDUINO_USB_STARTED_EVENT` and `ARDUINO_USB_RESUME_EVENT` (`UsbManager` → `CustomHIDDevice::resetSequence`), and whenever the host sends `CMD_RESET_SEQUENCE`.
+- Once a frame has been accepted, the firmware accepts the next one only when `sequence == lastSequence + 1` within the 15-bit space, wrapping through `0x7FFF` to `0`. Before any frame has been accepted since a reset, any 15-bit value is accepted and becomes the baseline.
 - Host frames must have **M = 0**. A frame with the M-bit set is rejected with `ERR_SEQUENCE` (`0x01`), as is any frame that is not exactly `previous + 1` (`CustomHIDDevice::handlePacket`).
+- `CMD_RESET_SEQUENCE` (`0x04`) is exempt from the `previous + 1` rule. It is accepted with any 15-bit sequence, it never becomes the baseline, and it clears `lastSequence` and `sequenceInitialized` so the next frame may carry any value. A reset frame with the M-bit set is still rejected with `ERR_SEQUENCE`.
+
+**Host recovery.** Send `CMD_RESET_SEQUENCE` after opening the device and after any `ERR_SEQUENCE`, then retry the failed command with the next sequence value. Advance the host counter for every frame sent, including the reset. Firmware that predates the command answers `ERR_UNKNOWN_COMMAND` when the frame is in sequence, and the host can carry on with its own counter. When that older firmware is already out of step it answers `ERR_SEQUENCE`, because its sequence check runs before dispatch, so the host has to ask the user to replug.
+
+A reset does not cancel an active file transfer. If the desync happened mid-upload, send `CMD_FILE_CANCEL` before retrying the upload.
 
 ### Device → Host (M-bit end-of-message)
 
@@ -84,6 +89,7 @@ All opcodes come from `enum Command` in [`OpCodes.hpp`](../src/usb/OpCodes.hpp).
 | `0x01` | `CMD_GET_DEVICE_INFO` | — | `RESP_DEVICE_INFO` |
 | `0x02` | `CMD_GET_IMAGES_LIST` | — | `RESP_IMAGES_LIST` |
 | `0x03` | `CMD_GET_PROFILES_LIST` | — | `RESP_PROFILES_LIST` |
+| `0x04` | `CMD_RESET_SEQUENCE` | — | `RESP_ACK` |
 | `0x20` | `CMD_PROFILE_CREATE` | profile name | `RESP_ACK` / `RESP_ERROR` |
 | `0x21` | `CMD_PROFILE_RENAME` | `old:new` | `RESP_ACK` / `RESP_ERROR` |
 | `0x22` | `CMD_PROFILE_DELETE` | profile name | `RESP_ACK` / `RESP_ERROR` |
@@ -119,6 +125,8 @@ Every host command is answered with **exactly one** device frame:
 - A **data response** (`RESP_*`) for the info/list queries,
 - `RESP_ACK` on success for mutating commands,
 - `RESP_ERROR` + 1-byte `ErrorCode` on failure.
+
+`CMD_RESET_SEQUENCE` is the one command answered with `RESP_ACK` while the device's sequence baseline is out of step. The device clears the baseline before sending the ACK.
 
 Unknown-opcode handling is **directional**:
 

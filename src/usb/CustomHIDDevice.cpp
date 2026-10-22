@@ -107,17 +107,26 @@ namespace usb
             return;
         }
 
+        // CMD_RESET_SEQUENCE is the one host frame exempt from the strict
+        // sequence check: it is how a host recovers when its counter drifts.
+        // The M-bit check above still applies. It is never the new baseline;
+        // the Dispatcher clears the baseline before ACKing.
+        const bool isReset = (opCode == CMD_RESET_SEQUENCE);
+
         // Strict last+1 within the 15-bit host sequence space once the first
         // frame has established the baseline. Masked compare lets the counter
         // wrap through 0x7FFF → 0 instead of wedging on the M-bit collision.
-        if (sequenceInitialized && (sequence & 0x7FFF) != ((lastSequence + 1) & 0x7FFF))
+        if (!isReset && sequenceInitialized && (sequence & 0x7FFF) != ((lastSequence + 1) & 0x7FFF))
         {
             Serial0.printf("[ERR] Sequence mismatch, got %d, expected %d\n", sequence & 0x7FFF, (lastSequence + 1) & 0x7FFF);
             sendError(ErrorCode::ERR_SEQUENCE);
             return;
         }
-        lastSequence = sequence & 0x7FFF;
-        sequenceInitialized = true;
+        if (!isReset)
+        {
+            lastSequence = sequence & 0x7FFF;
+            sequenceInitialized = true;
+        }
 
         if (packetCallback)
             packetCallback(opCode, sequence, payloadPtr, packet.length - HEADER_SIZE);

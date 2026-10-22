@@ -68,7 +68,7 @@ Defined in `platformio.ini` under `[common]`:
 ## Quick Start (Host App Checklist)
 
 1. Open vendor HID usage page `0xFF00`, report ID `0x06`; incoming/outgoing reports are 64 bytes.
-2. Send `CMD_PING` with sequence `0`; expect `RESP_ACK`. To read the firmware version, send `CMD_GET_DEVICE_INFO` and parse the `RESP_DEVICE_INFO` JSON payload. (Sequence doesn't matter on the very first frame.)
+2. Send `CMD_RESET_SEQUENCE` with any sequence and expect `RESP_ACK`, so the device clears any stale host baseline. Firmware without the command answers `ERR_UNKNOWN_COMMAND`; if it answers `ERR_SEQUENCE`, it predates the command and is already out of step, so replug it. Then send `CMD_PING` and expect `RESP_ACK`. To read the firmware version, send `CMD_GET_DEVICE_INFO` and parse the `RESP_DEVICE_INFO` JSON payload. (Sequence doesn't matter on the very first frame or on the reset.)
 3. Send `CMD_GET_PROFILES_LIST` / `CMD_GET_IMAGES_LIST` to reconcile hashes.
 4. Create profiles with `CMD_PROFILE_CREATE`, then upload page configs and icons with the file-transfer flow.
 5. Switch profile / page with `CMD_SET_ACTIVE_PROFILE` (`<name>`) and `CMD_SET_ACTIVE_PAGE` (`<id>`), and listen for `EVT_ACTION_TRIGGERED` when the user presses buttons.
