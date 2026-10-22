@@ -17,6 +17,7 @@ namespace usb
         CMD_GET_DEVICE_INFO = 0x01, // response: RESP_DEVICE_INFO
         CMD_GET_IMAGES_LIST = 0x02,      // response: RESP_IMAGES_LIST
         CMD_GET_PROFILES_LIST = 0x03,   // response: RESP_PROFILES_LIST
+        CMD_RESET_SEQUENCE = 0x04,      // no payload → RESP_ACK; clears the host sequence baseline
 
         // 0x2X profile operations (host→device)
         CMD_PROFILE_CREATE = 0x20, // data: profile name (string)

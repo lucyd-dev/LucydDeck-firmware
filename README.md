@@ -90,7 +90,7 @@ LucydDeck acts as a passive device driven by a companion desktop client. Host in
 1. **Enumerate & Open**
    Scan for `VID 0x303A` / `PID 0x822E` on the front native USB port and open the vendor interface (`Usage Page 0xFF00`, Report ID `0x06`).
 2. **Protocol Handshake**
-   Send `CMD_PING` (sequence `0`); verify the device answers `RESP_ACK`. Then send `CMD_GET_DEVICE_INFO` and parse the `RESP_DEVICE_INFO` JSON payload for the firmware version (`fw_version`), protocol version, board, and free space.
+   Send `CMD_RESET_SEQUENCE` with any sequence and verify `RESP_ACK`, so a stale host baseline is cleared. Firmware that predates the command answers `ERR_UNKNOWN_COMMAND`; `ERR_SEQUENCE` means it is already out of step and needs a replug. Then send `CMD_PING` and verify `RESP_ACK`. Send `CMD_GET_DEVICE_INFO` and parse the `RESP_DEVICE_INFO` JSON payload for the firmware version (`fw_version`), protocol version, board, and free space.
 3. **Cache Reconciliation**
    Issue `CMD_GET_PROFILES_LIST` and `CMD_GET_IMAGES_LIST` to retrieve on-device profile trees and file checksums before performing transfers.
 4. **Asset Synchronization**

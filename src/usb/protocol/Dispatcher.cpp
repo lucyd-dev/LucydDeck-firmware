@@ -36,6 +36,10 @@ namespace usb
             case usb::CMD_GET_PROFILES_LIST:
                 profiles.sendProfilesList();
                 break;
+            case usb::CMD_RESET_SEQUENCE:
+                usbManager.resetSequence();
+                usbManager.sendAck();
+                break;
             case usb::CMD_PROFILE_CREATE:
                 reply(profiles.create(payloadString(data, len)));
                 break;
