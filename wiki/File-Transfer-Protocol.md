@@ -12,11 +12,11 @@ Uploading files (page configs, icon images) uses a three-phase sequence of `CMD_
  CMD_FILE_CHUNK  (≤60 bytes)  ─────────►  append bytes, update running CRC32
  RESP_ACK / RESP_ERROR               ◄──
  ... (repeat for each chunk, seq + 1 each) ...
- CMD_FILE_END  (CRC32, 4B BE)  ────►  compare CRC, atomic rename .tmp → target
+ CMD_FILE_END  (CRC32, 4B BE)  ────►  compare CRC, swap .tmp into target
  RESP_ACK / RESP_ERROR               ◄──
 ```
 
-The firmware **never** replaces the destination in-place: it streams into a `<target>.tmp` staging file and only atomically renames it over the target **after** the CRC32 check passes. A failed or aborted transfer leaves the last-good file intact. `CMD_FILE_CANCEL` aborts an in-flight transfer at any time (answer: `RESP_ACK`; with no active transfer: `ERR_NO_TRANSFER`).
+The firmware never writes the destination in place: it streams into a `<target>.tmp` staging file. Once the CRC32 matches, an existing target is moved aside to `<target>.bak`, the staging file is renamed into place, and the backup is removed. If the swap fails, the backup is restored, so the last-good file survives. `CMD_FILE_CANCEL` aborts an in-flight transfer at any time (answer: `RESP_ACK`; with no active transfer: `ERR_NO_TRANSFER`).
 
 ## 2. `CMD_FILE_START` (0x30) — Target Types
 
@@ -66,7 +66,7 @@ expected CRC32 (big-endian) = CRC32(chunk0 bytes ++ chunk1 bytes ++ ... ++ chunk
 | Condition | Error code | Behavior |
 |---|---|---|
 | CRC mismatch | `ERR_CRC` | delete `.tmp`, keep old target |
-| Final rename fails | `ERR_FINALIZE` | delete `.tmp`, keep old target |
+| Final rename fails | `ERR_FINALIZE` | restore the `.bak` target, delete `.tmp` |
 | Write error mid-stream | `ERR_WRITE` | close + delete `.tmp` |
 | Inactivity > `FILE_TRANSFER_TIMEOUT` (1000 ms) | — (silent) | close + delete `.tmp`; **no error frame is sent** (`Storage::loop`) |
 | `CMD_FILE_END` with no active transfer | `ERR_NO_TRANSFER` | |

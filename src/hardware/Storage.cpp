@@ -425,12 +425,33 @@ namespace hardware
             return usb::ErrorCode::ERR_CRC;
         }
 
+        // A FAT rename does not replace an existing target, and sync rewrites
+        // files that are already on the card. Move the old file aside, swap the
+        // new one in, then drop the backup. On failure, put the old file back.
+        String backupPath = targetPath + ".bak";
+        bool hadTarget = SD.exists(targetPath.c_str());
+        if (hadTarget)
+        {
+            removeFile(backupPath);
+            if (!SD.rename(targetPath.c_str(), backupPath.c_str()))
+            {
+                Serial0.printf("[ERR] Failed to back up file: %s\n", targetPath.c_str());
+                removeFile(tempPath);
+                return usb::ErrorCode::ERR_FINALIZE;
+            }
+        }
+
         if (!SD.rename(tempPath.c_str(), targetPath.c_str()))
         {
             Serial0.printf("[ERR] Failed to finalize file: %s\n", targetPath.c_str());
+            if (hadTarget)
+                SD.rename(backupPath.c_str(), targetPath.c_str());
             removeFile(tempPath);
             return usb::ErrorCode::ERR_FINALIZE;
         }
+
+        if (hadTarget)
+            removeFile(backupPath);
 
         Serial0.println("File saved successfully");
         return usb::ErrorCode::OK;
