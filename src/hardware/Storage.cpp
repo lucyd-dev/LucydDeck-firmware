@@ -62,21 +62,40 @@ namespace hardware
         if (dot <= 0)
             return std::nullopt;
 
-        String idPart = filename.substring(0, dot);
-        String extPart = filename.substring(dot);
-        if (extPart != ".json" || idPart.length() > 3)
+        if (filename.substring(dot) != ".json")
             return std::nullopt;
 
-        for (unsigned int i = 0; i < idPart.length(); ++i)
+        return parsePageIdValue(filename.substring(0, dot));
+    }
+
+    std::optional<uint8_t> Storage::parsePageIdValue(const String &id)
+    {
+        if (id.isEmpty() || id.length() > 3)
+            return std::nullopt;
+
+        for (unsigned int i = 0; i < id.length(); ++i)
         {
-            if (idPart[i] < '0' || idPart[i] > '9')
+            if (id[i] < '0' || id[i] > '9')
                 return std::nullopt;
         }
 
-        long id = idPart.toInt();
-        if (id < 0 || id > 255)
+        long value = id.toInt();
+        if (value < 0 || value > 255)
             return std::nullopt;
-        return static_cast<uint8_t>(id);
+        return static_cast<uint8_t>(value);
+    }
+
+    bool Storage::hasTransferExtension(const String &name)
+    {
+        // The firmware appends the extension, so an identity that already carries one is a
+        // host mistake, not a filename to be taken literally.
+        auto endsWithIgnoreCase = [&name](const char *ext) {
+            size_t extLen = strlen(ext);
+            if (name.length() < extLen)
+                return false;
+            return name.substring(name.length() - extLen).equalsIgnoreCase(ext);
+        };
+        return endsWithIgnoreCase(".json") || endsWithIgnoreCase(".png");
     }
 
     bool Storage::fileExists(const String &path)
@@ -213,45 +232,45 @@ namespace hardware
             file.close();
 
         if (data.isEmpty())
-            return usb::ErrorCode::ERR_INVALID_PATH_TYPE;
+            return usb::ErrorCode::ERR_INVALID_TARGET_TYPE;
 
-        auto pathType = static_cast<usb::PathType>(data[0]);
-        if (pathType != usb::PathType::PATH_PAGE && pathType != usb::PathType::PATH_ICON)
+        auto targetType = static_cast<usb::TargetType>(data[0]);
+        if (targetType != usb::TargetType::TARGET_PAGE && targetType != usb::TargetType::TARGET_ICON)
         {
-            Serial0.printf("[ERR] Invalid path type: 0x%02X\n", data[0]);
-            return usb::ErrorCode::ERR_INVALID_PATH_TYPE;
+            Serial0.printf("[ERR] Invalid target type: 0x%02X\n", data[0]);
+            return usb::ErrorCode::ERR_INVALID_TARGET_TYPE;
         }
 
-        String rest = data.substring(1);
+        String identity = data.substring(1);
         String targetPath;
         String transferProfile = "";
 
-        if (pathType == usb::PathType::PATH_PAGE)
+        if (targetType == usb::TargetType::TARGET_PAGE)
         {
-            int slash = rest.indexOf('/');
-            if (slash <= 0 || slash >= rest.length() - 1)
+            int slash = identity.indexOf('/');
+            if (slash <= 0 || slash >= identity.length() - 1)
                 return usb::ErrorCode::ERR_INVALID_PATH;
 
-            String profile = rest.substring(0, slash);
-            String filename = rest.substring(slash + 1);
-            if (!validateName(profile) || !validateName(filename))
+            String profile = identity.substring(0, slash);
+            std::optional<uint8_t> pageId = parsePageIdValue(identity.substring(slash + 1));
+            if (!validateName(profile))
                 return usb::ErrorCode::ERR_INVALID_PATH;
 
-            if (!parsePageId(filename).has_value())
+            if (!pageId.has_value())
                 return usb::ErrorCode::ERR_INVALID_PAGE_NAME;
 
             String profileDir = PROFILES_DIR + profile;
             if (!SD.exists(profileDir.c_str()))
                 return usb::ErrorCode::ERR_PROFILE_NOT_FOUND;
 
-            targetPath = profileDir + "/" + filename;
+            targetPath = profileDir + "/" + String(static_cast<unsigned int>(*pageId)) + ".json";
             transferProfile = profile;
         }
         else
         {
-            if (!validateName(rest))
+            if (!validateName(identity) || hasTransferExtension(identity))
                 return usb::ErrorCode::ERR_INVALID_PATH;
-            targetPath = IMAGE_DIR + rest;
+            targetPath = IMAGE_DIR + identity + ".png";
         }
 
         String tempPath = targetPath + ".tmp";

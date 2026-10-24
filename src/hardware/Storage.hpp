@@ -55,5 +55,7 @@ namespace hardware
 
         void closeFile();
         void removeFile(const String &path);
+        static std::optional<uint8_t> parsePageIdValue(const String &id);
+        static bool hasTransferExtension(const String &name);
     };
 }

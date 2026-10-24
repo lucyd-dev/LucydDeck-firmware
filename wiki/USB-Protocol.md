@@ -93,7 +93,7 @@ All opcodes come from `enum Command` in [`OpCodes.hpp`](../src/usb/OpCodes.hpp).
 | `0x20` | `CMD_PROFILE_CREATE` | profile name | `RESP_ACK` / `RESP_ERROR` |
 | `0x21` | `CMD_PROFILE_RENAME` | `old:new` | `RESP_ACK` / `RESP_ERROR` |
 | `0x22` | `CMD_PROFILE_DELETE` | profile name | `RESP_ACK` / `RESP_ERROR` |
-| `0x30` | `CMD_FILE_START` | pathType + path | `RESP_ACK` / `RESP_ERROR` |
+| `0x30` | `CMD_FILE_START` | target type + identity | `RESP_ACK` / `RESP_ERROR` |
 | `0x31` | `CMD_FILE_CHUNK` | ≤ 60 B binary | `RESP_ACK` / `RESP_ERROR` |
 | `0x32` | `CMD_FILE_END` | CRC32 (4 B, BE) | `RESP_ACK` / `RESP_ERROR` |
 | `0x33` | `CMD_FILE_CANCEL` | — | `RESP_ACK` / `RESP_ERROR` |
@@ -101,6 +101,19 @@ All opcodes come from `enum Command` in [`OpCodes.hpp`](../src/usb/OpCodes.hpp).
 | `0x41` | `CMD_SET_ACTIVE_PAGE` | page id | `RESP_ACK` / `RESP_ERROR` |
 
 `CMD_PING` is a zero-payload heartbeat; the device answers it with `RESP_ACK` immediately.
+
+#### `CMD_FILE_START` target grammar
+
+The payload is `[ kind (1 byte) ][ identity (string) ]`, both from `TargetType` in [`OpCodes.hpp`](../src/usb/OpCodes.hpp). The host names the entity; the firmware builds the storage path and appends the extension.
+
+| kind | `TargetType` | identity | firmware target |
+|---|---|---|---|
+| `0x01` | `TARGET_PAGE` | `<profile>/<id>` | `/profiles/<profile>/<id>.json` |
+| `0x02` | `TARGET_ICON` | `<name>` | `/icons/<name>.png` |
+
+- Page identities split on the first `/`: the profile must pass `validateName` and its directory must exist; the id is decimal `0`–`255`.
+- Icon identities are a flat `validateName`, without an extension.
+- Full validation rules and the transfer flow are in [File-Transfer-Protocol §2](File-Transfer-Protocol#2-cmd_file_start-0x30--target-types).
 
 ### Device → Host (`0x80..0xFF`)
 
@@ -143,15 +156,15 @@ Unknown-opcode handling is **directional**:
 | `0x01` | `ERR_SEQUENCE` | host frame not exactly `prev+1`, or M-bit set |
 | `0x02` | `ERR_UNKNOWN_COMMAND` | unknown host-direction opcode |
 | `0x03` | `ERR_INVALID_DIRECTION` | host used a device-direction opcode (bit 7) |
-| `0x10` | `ERR_INVALID_PATH` | name failed `validateName` |
-| `0x11` | `ERR_INVALID_PAGE_NAME` | page target not `<id>.json` |
+| `0x10` | `ERR_INVALID_PATH` | identity failed `validateName`, or an icon identity carried an extension |
+| `0x11` | `ERR_INVALID_PAGE_NAME` | page identity not a decimal id `0`–`255` |
 | `0x12` | `ERR_PROFILE_NOT_FOUND` | profile dir missing (upload, rename src, delete) |
 | `0x13` | `ERR_PROFILE_EXISTS` | create or rename target conflicts |
 | `0x14` | `ERR_CREATE` | `SD.mkdir` failed |
 | `0x15` | `ERR_RENAME` | `SD.rename` failed |
 | `0x16` | `ERR_DELETE` | recursive delete failed |
 | `0x20` | `ERR_TRANSFER_BUSY` | `CMD_FILE_START` while a transfer is active |
-| `0x21` | `ERR_INVALID_PATH_TYPE` | first byte of `CMD_FILE_START` is not `0x01`/`0x02` |
+| `0x21` | `ERR_INVALID_TARGET_TYPE` | first byte of `CMD_FILE_START` is not a known target type (`0x01`/`0x02`) |
 | `0x22` | `ERR_FILE_OPEN` | `.tmp` open failed |
 | `0x23` | `ERR_CHUNK_TOO_LARGE` | chunk exceeds the internal cap |
 | `0x24` | `ERR_FILE_NOT_OPEN` | `CMD_FILE_CHUNK` with no active transfer |
@@ -173,7 +186,7 @@ Unknown-opcode handling is **directional**:
 
 | File | Responsibility |
 |---|---|
-| `src/usb/OpCodes.hpp` | opcode enum + `PathType` + payload grammars |
+| `src/usb/OpCodes.hpp` | opcode enum + `TargetType` + identity grammars |
 | `src/usb/Errors.hpp` | `ErrorCode` enum (1-byte error table) |
 | `src/usb/CustomHIDDevice.hpp/.cpp` | framing, M-bit EOM, sequence & direction enforcement, TX/RX |
 | `src/usb/protocol/Dispatcher.hpp/.cpp` | opcode → handler routing, ACK/ERROR emission |

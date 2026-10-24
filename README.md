@@ -94,7 +94,7 @@ LucydDeck acts as a passive device driven by a companion desktop client. Host in
 3. **Cache Reconciliation**
    Issue `CMD_GET_PROFILES_LIST` and `CMD_GET_IMAGES_LIST` to retrieve on-device profile trees and file checksums before performing transfers.
 4. **Asset Synchronization**
-   Create required profiles using `CMD_PROFILE_CREATE`, then stage missing icons (`.png`) and layout definitions (`<id>.json`) via the [File Transfer Protocol](wiki/File-Transfer-Protocol.md).
+   Create required profiles using `CMD_PROFILE_CREATE`, then stage missing icons (`<name>`) and pages (`<profile>/<id>`) by identity via the [File Transfer Protocol](wiki/File-Transfer-Protocol.md); the firmware appends `.png`/`.json` and builds the path.
 5. **Runtime Event Loop**
    * **Active Control:** Dispatch `CMD_SET_ACTIVE_PROFILE` (`<name>`) or `CMD_SET_ACTIVE_PAGE` (`<id>`) to control active UI state from the PC.
    * **Plugin Handling:** Continuously listen for incoming `EVT_ACTION_TRIGGERED` reports to execute custom desktop actions (e.g., OBS scene switches, mute toggles, Discord events).

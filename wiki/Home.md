@@ -61,7 +61,7 @@ Defined in `platformio.ini` under `[common]`:
 | Page | Contents |
 |---|---|
 | [**USB-Protocol**](USB-Protocol) | 64-byte report anatomy, directional opcode tables, sequence numbering, M-bit end-of-message, error codes, request/response framing |
-| [**File-Transfer-Protocol**](File-Transfer-Protocol) | `CMD_FILE_START` → `CMD_FILE_CHUNK` → `CMD_FILE_END` workflow, path grammars, CRC32, atomic `.tmp` staging |
+| [**File-Transfer-Protocol**](File-Transfer-Protocol) | `CMD_FILE_START` → `CMD_FILE_CHUNK` → `CMD_FILE_END` workflow, target identities, CRC32, atomic `.tmp` staging |
 | [**Configuration-Schema**](Configuration-Schema) | Page JSON schema (3×5 grid, keys `0..14`), button properties, action-string grammar |
 | [**Storage-Structure**](Storage-Structure) | SD card directory layout, `<id>.json` page naming, profile operations, boot-time provisioning |
 
