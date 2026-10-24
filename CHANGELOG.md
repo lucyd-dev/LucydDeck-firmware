@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/lucyd-dev/LucydDeck-firmware/compare/v0.3.1...v0.4.0) (2026-10-24)
+
+
+### Features
+
+* **usb:** add page and icon delete commands ([f188f0d](https://github.com/lucyd-dev/LucydDeck-firmware/commit/f188f0d38649464ac0ffa2d2d22a15c765d580b0)), closes [#9](https://github.com/lucyd-dev/LucydDeck-firmware/issues/9)
+
+
+### Bug Fixes
+
+* **storage:** replace an existing file when a transfer finalizes ([9613ea7](https://github.com/lucyd-dev/LucydDeck-firmware/commit/9613ea7ff32440147d562f0e39839f93b143a7a3))
+* **usb:** add host sequence reset command ([#7](https://github.com/lucyd-dev/LucydDeck-firmware/issues/7)) ([5cf64f5](https://github.com/lucyd-dev/LucydDeck-firmware/commit/5cf64f52cdb07a9d498ef2ba0921164e3e299b28))
+
 ## [0.3.1](https://github.com/lucyd-dev/LucydDeck-firmware/compare/v0.3.0...v0.3.1) (2026-09-18)
 
 
