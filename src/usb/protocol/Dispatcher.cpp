@@ -13,6 +13,7 @@ namespace usb
             : usbManager(usbManager), storage(storage), configManager(configManager), deck(deck),
               deviceInfo(usbManager, storage),
               profiles(usbManager, storage, configManager, deck),
+              deletes(storage, configManager, deck),
               fileTransfer(storage, configManager),
               queries(usbManager, storage)
         {
@@ -48,6 +49,12 @@ namespace usb
                 break;
             case usb::CMD_PROFILE_DELETE:
                 reply(profiles.remove(payloadString(data, len)));
+                break;
+            case usb::CMD_PAGE_DELETE:
+                reply(deletes.removePage(payloadString(data, len)));
+                break;
+            case usb::CMD_ICON_DELETE:
+                reply(deletes.removeIcon(payloadString(data, len)));
                 break;
             case usb::CMD_FILE_START:
                 reply(fileTransfer.start(payloadString(data, len)));

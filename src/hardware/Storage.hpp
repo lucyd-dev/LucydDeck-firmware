@@ -25,7 +25,22 @@ namespace hardware
         void loop();
         static bool validateName(const String &name);
         static std::optional<uint8_t> parsePageId(const String &filename);
+
+        // Identity grammars shared by CMD_FILE_START and the delete commands. The host names an
+        // entity; the firmware owns the storage path and appends the extension.
+        struct PageIdentity
+        {
+            String profile;
+            uint8_t id = 0;
+        };
+        static usb::ErrorCode parsePageIdentity(const String &identity, PageIdentity &outPage);
+        static bool isIconIdentity(const String &identity);
+        static String pagePath(const PageIdentity &page);
+        static String iconPath(const String &iconName);
+        static String profilePath(const String &profile);
+
         bool fileExists(const String &path);
+        bool dirExists(const String &path);
         std::vector<String> listDir(const String &path, bool onlyDirs = false);
         uint32_t calculateFileCRC(File &file);
         uint32_t freeSpaceKb();
@@ -33,6 +48,7 @@ namespace hardware
         usb::ErrorCode createDir(const String &path);
         usb::ErrorCode renameDir(const String &oldPath, const String &newPath);
         usb::ErrorCode deleteDirRecursive(const String &path);
+        usb::ErrorCode deleteFile(const String &path);
         usb::ErrorCode writeFile(const String &data);
         usb::ErrorCode handleFileChunk(const uint8_t *data, size_t len);
         usb::ErrorCode finishFile(const uint32_t expectedCRC);

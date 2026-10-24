@@ -19,6 +19,7 @@ namespace core
         bool handleInternal(const config::actions::ActionData &action);
         void onProfileRenamed(const String &oldName, const String &newName);
         void onProfileDeleted(const String &name);
+        void onPageDeleted(const String &profileName, uint8_t pageId);
         void render();
 
     private:

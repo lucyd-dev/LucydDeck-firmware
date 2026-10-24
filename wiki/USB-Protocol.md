@@ -93,6 +93,8 @@ All opcodes come from `enum Command` in [`OpCodes.hpp`](../src/usb/OpCodes.hpp).
 | `0x20` | `CMD_PROFILE_CREATE` | profile name | `RESP_ACK` / `RESP_ERROR` |
 | `0x21` | `CMD_PROFILE_RENAME` | `old:new` | `RESP_ACK` / `RESP_ERROR` |
 | `0x22` | `CMD_PROFILE_DELETE` | profile name | `RESP_ACK` / `RESP_ERROR` |
+| `0x23` | `CMD_PAGE_DELETE` | `<profile>/<id>` | `RESP_ACK` / `RESP_ERROR` |
+| `0x24` | `CMD_ICON_DELETE` | `<name>` | `RESP_ACK` / `RESP_ERROR` |
 | `0x30` | `CMD_FILE_START` | target type + identity | `RESP_ACK` / `RESP_ERROR` |
 | `0x31` | `CMD_FILE_CHUNK` | ≤ 60 B binary | `RESP_ACK` / `RESP_ERROR` |
 | `0x32` | `CMD_FILE_END` | CRC32 (4 B, BE) | `RESP_ACK` / `RESP_ERROR` |
@@ -114,6 +116,24 @@ The payload is `[ kind (1 byte) ][ identity (string) ]`, both from `TargetType` 
 - Page identities split on the first `/`: the profile must pass `validateName` and its directory must exist; the id is decimal `0`–`255`.
 - Icon identities are a flat `validateName`, without an extension.
 - Full validation rules and the transfer flow are in [File-Transfer-Protocol §2](File-Transfer-Protocol#2-cmd_file_start-0x30--target-types).
+
+#### `CMD_PAGE_DELETE` and `CMD_ICON_DELETE`
+
+Both take the identity `CMD_FILE_START` uses for that entity and remove the file it targets, answering `RESP_ACK` on success: `0x23` takes `<profile>/<id>` and removes `/profiles/<profile>/<id>.json`, `0x24` takes `<name>` and removes `/icons/<name>.png`. The grammar is the one in [File-Transfer-Protocol §2](File-Transfer-Protocol#2-cmd_file_start-0x30--target-types), with the page id normalized (`default/03` removes `default/3.json`). Neither accepts an extension, because the firmware appends it.
+
+Errors — nothing is written or removed on any of them:
+
+| Code | When |
+|---|---|
+| `0x10` `ERR_INVALID_PATH` | profile half or icon name fails `validateName`, carries an extension, or the payload has no page half (`default`, `default/`) |
+| `0x11` `ERR_INVALID_PAGE_NAME` | page half is not a decimal id `0`–`255`, including one carrying `.json` or a second slash |
+| `0x12` `ERR_PROFILE_NOT_FOUND` | the profile directory is missing |
+| `0x2A` `ERR_FILE_NOT_FOUND` | the page or icon file is missing |
+| `0x16` `ERR_DELETE` | the unlink fails |
+
+**Page lifecycle.** A page delete rebuilds the profile's cached page list (`ConfigManager::refreshProfile`) whether or not the unlink succeeds, so the next `CMD_GET_PROFILES_LIST` reports what is actually on the card. If the deleted page is the one on screen, the deck repaints the lowest remaining page id of the active profile, or a blank deck when the profile has none left. Deleting any other page leaves the screen untouched: `ConfigManager` records the displayed page in `loadPage`/`loadProfile`, and `isDisplayedPage` is the check that separates the two cases.
+
+**Icon lifecycle.** `CMD_GET_IMAGES_LIST` scans `/icons/` on every request, so nothing is cached and no refresh is needed. Deleting an icon never repaints — the current page keeps the pixmap it already loaded until it is reloaded.
 
 ### Device → Host (`0x80..0xFF`)
 
@@ -162,7 +182,7 @@ Unknown-opcode handling is **directional**:
 | `0x13` | `ERR_PROFILE_EXISTS` | create or rename target conflicts |
 | `0x14` | `ERR_CREATE` | `SD.mkdir` failed |
 | `0x15` | `ERR_RENAME` | `SD.rename` failed |
-| `0x16` | `ERR_DELETE` | recursive delete failed |
+| `0x16` | `ERR_DELETE` | delete failed (recursive directory or single file) |
 | `0x20` | `ERR_TRANSFER_BUSY` | `CMD_FILE_START` while a transfer is active |
 | `0x21` | `ERR_INVALID_TARGET_TYPE` | first byte of `CMD_FILE_START` is not a known target type (`0x01`/`0x02`) |
 | `0x22` | `ERR_FILE_OPEN` | `.tmp` open failed |
@@ -173,6 +193,7 @@ Unknown-opcode handling is **directional**:
 | `0x27` | `ERR_CRC_MISSING` | `CMD_FILE_END` payload shorter than 4 bytes |
 | `0x28` | `ERR_CRC` | computed CRC32 ≠ expected; staging file discarded |
 | `0x29` | `ERR_FINALIZE` | rename of staging → target failed after CRC OK |
+| `0x2A` | `ERR_FILE_NOT_FOUND` | delete target file missing on the SD card |
 | `0x30` | `ERR_UNKNOWN_ACTION` | `CMD_SET_ACTIVE_PAGE` payload not a valid page id |
 | `0x31` | `ERR_PAGE_LOAD` | page target missing / failed to load |
 | `0x32` | `ERR_PROFILE_LOAD` | profile target missing / failed to load |
@@ -190,5 +211,5 @@ Unknown-opcode handling is **directional**:
 | `src/usb/Errors.hpp` | `ErrorCode` enum (1-byte error table) |
 | `src/usb/CustomHIDDevice.hpp/.cpp` | framing, M-bit EOM, sequence & direction enforcement, TX/RX |
 | `src/usb/protocol/Dispatcher.hpp/.cpp` | opcode → handler routing, ACK/ERROR emission |
-| `src/usb/protocol/handlers/*` | DeviceInfo / Profile / FileTransfer / Query handlers |
+| `src/usb/protocol/handlers/*` | DeviceInfo / Profile / Delete / FileTransfer / Query handlers |
 | `src/core/DeckController.hpp/.cpp` | `CMD_SET_ACTIVE_PROFILE` / `CMD_SET_ACTIVE_PAGE`, internal actions, reselect/re-render |

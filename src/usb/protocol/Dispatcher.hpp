@@ -12,6 +12,7 @@
 #include "core/DeckController.hpp"
 #include "handlers/DeviceInfoHandler.hpp"
 #include "handlers/ProfileHandler.hpp"
+#include "handlers/DeleteHandler.hpp"
 #include "handlers/FileTransferHandler.hpp"
 #include "handlers/QueryHandler.hpp"
 
@@ -33,6 +34,7 @@ namespace usb
             core::DeckController &deck;
             handlers::DeviceInfoHandler deviceInfo;
             handlers::ProfileHandler profiles;
+            handlers::DeleteHandler deletes;
             handlers::FileTransferHandler fileTransfer;
             handlers::QueryHandler queries;
 

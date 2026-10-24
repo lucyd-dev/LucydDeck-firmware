@@ -39,7 +39,28 @@ namespace config
             return false;
 
         currentConfig = std::move(newConfig);
+        currentPageId = pageId;
         return true;
+    }
+
+    void ConfigManager::loadFirstRemainingPage()
+    {
+        auto it = profiles.find(currentProfile);
+        if (it != profiles.end())
+        {
+            // Lowest remaining id wins; a page that fails to parse is skipped rather than
+            // blanking a deck that still has content.
+            for (const auto &page : it->second)
+            {
+                if (loadPage(page.first))
+                    return;
+            }
+        }
+
+        // The active profile has no page left to show: the deck goes blank rather than keeping
+        // the page that was just deleted on screen.
+        currentConfig.clear();
+        currentPageId.reset();
     }
 
     bool ConfigManager::loadProfile(const String &profileName)
@@ -61,6 +82,7 @@ namespace config
 
         currentProfile = profileName;
         currentConfig = std::move(newConfig);
+        currentPageId = pageId;
         return true;
     }
 
@@ -199,7 +221,10 @@ namespace config
     {
         profiles.erase(name);
         if (currentProfile == name)
+        {
             currentProfile = "";
+            currentPageId.reset();
+        }
     }
 
     const ProfileList &ConfigManager::getProfiles() const
@@ -210,6 +235,11 @@ namespace config
     const String &ConfigManager::getCurrentProfile() const
     {
         return currentProfile;
+    }
+
+    bool ConfigManager::isDisplayedPage(const String &profileName, uint8_t pageId) const
+    {
+        return currentProfile == profileName && currentPageId.has_value() && *currentPageId == pageId;
     }
 
     const PageConfig &ConfigManager::getCurrentConfig() const

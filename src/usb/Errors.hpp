@@ -19,7 +19,7 @@ namespace usb
         ERR_PROFILE_EXISTS      = 0x13, // create or rename target conflicts
         ERR_CREATE              = 0x14, // SD.mkdir failed
         ERR_RENAME              = 0x15, // SD.rename failed
-        ERR_DELETE              = 0x16, // recursive delete failed
+        ERR_DELETE              = 0x16, // delete failed (recursive dir or single file)
         ERR_TRANSFER_BUSY       = 0x20, // FILE_START while transfer active
         ERR_INVALID_TARGET_TYPE = 0x21, // FILE_START kind not a known TargetType
         ERR_FILE_OPEN           = 0x22, // .tmp open failed
@@ -30,6 +30,7 @@ namespace usb
         ERR_CRC_MISSING         = 0x27,
         ERR_CRC                 = 0x28,
         ERR_FINALIZE            = 0x29, // .tmp → target rename failed
+        ERR_FILE_NOT_FOUND      = 0x2A, // delete target missing on the SD card
         ERR_UNKNOWN_ACTION      = 0x30, // SET_ACTIVE_PAGE payload not a valid page id
         ERR_PAGE_LOAD           = 0x31,
         ERR_PROFILE_LOAD        = 0x32,

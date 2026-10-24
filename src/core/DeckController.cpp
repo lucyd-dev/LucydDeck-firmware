@@ -71,6 +71,17 @@ namespace core
         }
     }
 
+    void DeckController::onPageDeleted(const String &profileName, uint8_t pageId)
+    {
+        // Only the displayed page forces a repaint; deleting any other page leaves the screen
+        // untouched. The new content is the lowest remaining page, or a blank deck.
+        if (!config.isDisplayedPage(profileName, pageId))
+            return;
+
+        config.loadFirstRemainingPage();
+        render();
+    }
+
     void DeckController::render()
     {
         display.renderButtonsFromConfig(config.getCurrentConfig());

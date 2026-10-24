@@ -56,6 +56,45 @@ namespace hardware
         return true;
     }
 
+    usb::ErrorCode Storage::parsePageIdentity(const String &identity, PageIdentity &outPage)
+    {
+        int slash = identity.indexOf('/');
+        if (slash <= 0 || slash >= identity.length() - 1)
+            return usb::ErrorCode::ERR_INVALID_PATH;
+
+        String profile = identity.substring(0, slash);
+        if (!validateName(profile))
+            return usb::ErrorCode::ERR_INVALID_PATH;
+
+        std::optional<uint8_t> pageId = parsePageIdValue(identity.substring(slash + 1));
+        if (!pageId.has_value())
+            return usb::ErrorCode::ERR_INVALID_PAGE_NAME;
+
+        outPage.profile = profile;
+        outPage.id = *pageId;
+        return usb::ErrorCode::OK;
+    }
+
+    bool Storage::isIconIdentity(const String &identity)
+    {
+        return validateName(identity) && !hasTransferExtension(identity);
+    }
+
+    String Storage::pagePath(const PageIdentity &page)
+    {
+        return PROFILES_DIR + page.profile + "/" + String(static_cast<unsigned int>(page.id)) + ".json";
+    }
+
+    String Storage::iconPath(const String &iconName)
+    {
+        return IMAGE_DIR + iconName + ".png";
+    }
+
+    String Storage::profilePath(const String &profile)
+    {
+        return PROFILES_DIR + profile;
+    }
+
     std::optional<uint8_t> Storage::parsePageId(const String &filename)
     {
         int dot = filename.indexOf('.');
@@ -101,7 +140,18 @@ namespace hardware
     bool Storage::fileExists(const String &path)
     {
         return SD.exists(path.c_str());
-    }    
+    }
+
+    bool Storage::dirExists(const String &path)
+    {
+        File dir = SD.open(path.c_str());
+        if (!dir)
+            return false;
+
+        bool isDirectory = dir.isDirectory();
+        dir.close();
+        return isDirectory;
+    }
     
     std::vector<String> Storage::listDir(const String &dir, bool onlyDirs)
     {
@@ -203,7 +253,7 @@ namespace hardware
             }
             else
             {
-                if (!SD.remove(entryPath.c_str()))
+                if (deleteFile(entryPath) != usb::ErrorCode::OK)
                 {
                     dir.close();
                     return usb::ErrorCode::ERR_DELETE;
@@ -217,6 +267,21 @@ namespace hardware
             return usb::ErrorCode::ERR_DELETE;
 
         Serial0.printf("Dir deleted: %s\n", path.c_str());
+        return usb::ErrorCode::OK;
+    }
+
+    usb::ErrorCode Storage::deleteFile(const String &path)
+    {
+        if (!SD.exists(path.c_str()))
+            return usb::ErrorCode::ERR_FILE_NOT_FOUND;
+
+        if (!SD.remove(path.c_str()))
+        {
+            Serial0.printf("[ERR] Failed to delete file: %s\n", path.c_str());
+            return usb::ErrorCode::ERR_DELETE;
+        }
+
+        Serial0.printf("File deleted: %s\n", path.c_str());
         return usb::ErrorCode::OK;
     }
     
@@ -247,30 +312,22 @@ namespace hardware
 
         if (targetType == usb::TargetType::TARGET_PAGE)
         {
-            int slash = identity.indexOf('/');
-            if (slash <= 0 || slash >= identity.length() - 1)
-                return usb::ErrorCode::ERR_INVALID_PATH;
+            PageIdentity page;
+            usb::ErrorCode error = parsePageIdentity(identity, page);
+            if (error != usb::ErrorCode::OK)
+                return error;
 
-            String profile = identity.substring(0, slash);
-            std::optional<uint8_t> pageId = parsePageIdValue(identity.substring(slash + 1));
-            if (!validateName(profile))
-                return usb::ErrorCode::ERR_INVALID_PATH;
-
-            if (!pageId.has_value())
-                return usb::ErrorCode::ERR_INVALID_PAGE_NAME;
-
-            String profileDir = PROFILES_DIR + profile;
-            if (!SD.exists(profileDir.c_str()))
+            if (!dirExists(profilePath(page.profile)))
                 return usb::ErrorCode::ERR_PROFILE_NOT_FOUND;
 
-            targetPath = profileDir + "/" + String(static_cast<unsigned int>(*pageId)) + ".json";
-            transferProfile = profile;
+            targetPath = pagePath(page);
+            transferProfile = page.profile;
         }
         else
         {
-            if (!validateName(identity) || hasTransferExtension(identity))
+            if (!isIconIdentity(identity))
                 return usb::ErrorCode::ERR_INVALID_PATH;
-            targetPath = IMAGE_DIR + identity + ".png";
+            targetPath = iconPath(identity);
         }
 
         String tempPath = targetPath + ".tmp";

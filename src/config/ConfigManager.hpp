@@ -19,8 +19,10 @@ namespace config
         void begin();
         bool loadPage(uint8_t pageId = 0);
         bool loadProfile(const String &profileName);
+        void loadFirstRemainingPage();
         const actions::ProfileList &getProfiles() const;
         const String &getCurrentProfile() const;
+        bool isDisplayedPage(const String &profileName, uint8_t pageId) const;
         const actions::PageConfig &getCurrentConfig() const;
         void refreshProfile(const String &profileName);
         bool ensureProfileSelected();
@@ -33,6 +35,7 @@ namespace config
         actions::ProfileList profiles;
         actions::PageConfig currentConfig;
         String currentProfile;
+        std::optional<uint8_t> currentPageId;
         
         void scanProfileDir();
         std::optional<uint8_t> parsePageId(const String &filename);

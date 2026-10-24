@@ -19,10 +19,12 @@ namespace usb
         CMD_GET_PROFILES_LIST = 0x03,   // response: RESP_PROFILES_LIST
         CMD_RESET_SEQUENCE = 0x04,      // no payload → RESP_ACK; clears the host sequence baseline
 
-        // 0x2X profile operations (host→device)
+        // 0x2X entity operations (host→device)
         CMD_PROFILE_CREATE = 0x20, // data: profile name (string)
         CMD_PROFILE_RENAME = 0x21, // data: old:new (string)
         CMD_PROFILE_DELETE = 0x22, // data: profile name (string)
+        CMD_PAGE_DELETE    = 0x23, // data: "<profile>/<id>" (string, no .json)
+        CMD_ICON_DELETE    = 0x24, // data: "<name>" (string, no .png)
 
         // 0x3X file transfer (host→device)
         CMD_FILE_START = 0x30,     // data: targetType(1 byte) + identity (string)
