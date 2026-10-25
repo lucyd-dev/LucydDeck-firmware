@@ -9,8 +9,9 @@ namespace usb
     {
         namespace handlers
         {
-            FileTransferHandler::FileTransferHandler(hardware::Storage &storage, config::ConfigManager &configManager)
-                : storage(storage), configManager(configManager)
+            FileTransferHandler::FileTransferHandler(hardware::Storage &storage, config::ConfigManager &configManager,
+                                                     core::DeckController &deck)
+                : storage(storage), configManager(configManager), deck(deck)
             {
             }
 
@@ -38,13 +39,22 @@ namespace usb
                                        static_cast<uint32_t>(data[3]);
 
                 usb::ErrorCode error = storage.finishFile(expectedCRC);
-                if (error == usb::ErrorCode::OK)
+                if (error != usb::ErrorCode::OK)
+                    return error;
+
+                // The commit only changes what is on the card; the deck keeps the frame it read
+                // before it. Repaint the entity the transfer wrote, and nothing else.
+                const hardware::Storage::TransferTarget &target = storage.getTransferTarget();
+                if (target.type == usb::TargetType::TARGET_ICON)
                 {
-                    const String &profile = storage.getTransferProfile();
-                    if (!profile.isEmpty())
-                        configManager.refreshProfile(profile);
+                    deck.onIconChanged(target.iconName);
+                    return usb::ErrorCode::OK;
                 }
-                return error;
+
+                configManager.refreshProfile(target.profile);
+                if (configManager.isDisplayedPage(target.profile, target.pageId))
+                    deck.refreshDisplayedPage();
+                return usb::ErrorCode::OK;
             }
 
             usb::ErrorCode FileTransferHandler::cancel()

@@ -133,7 +133,9 @@ Errors — nothing is written or removed on any of them:
 
 **Page lifecycle.** A page delete rebuilds the profile's cached page list (`ConfigManager::refreshProfile`) whether or not the unlink succeeds, so the next `CMD_GET_PROFILES_LIST` reports what is actually on the card. If the deleted page is the one on screen, the deck repaints the lowest remaining page id of the active profile, or a blank deck when the profile has none left. Deleting any other page leaves the screen untouched: `ConfigManager` records the displayed page in `loadPage`/`loadProfile`, and `isDisplayedPage` is the check that separates the two cases.
 
-**Icon lifecycle.** `CMD_GET_IMAGES_LIST` scans `/icons/` on every request, so nothing is cached and no refresh is needed. Deleting an icon never repaints — the current page keeps the pixmap it already loaded until it is reloaded.
+**Icon lifecycle.** `CMD_GET_IMAGES_LIST` scans `/icons/` on every request, so nothing is cached and no refresh is needed. The display does keep the decoded bitmap: an icon transfer (`CMD_FILE_END` on a `TARGET_ICON`) and a successful `CMD_ICON_DELETE` both drop the cache entry for `/icons/<name>.png` and repaint, so a new, replaced or removed icon reaches the screen without a reboot. A key whose icon file is missing renders as a key without one — background colour and label — with a `[WARN]` line naming the path.
+
+**Page lifecycle on transfer.** A page commit refreshes the profile's page list and, when the committed page is the one on screen, re-reads it from the card and repaints (`ConfigManager::reloadDisplayedPage`). A page that no longer parses after the commit leaves the current frame up. A commit to any other page leaves the screen untouched.
 
 ### Device → Host (`0x80..0xFF`)
 

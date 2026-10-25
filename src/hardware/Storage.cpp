@@ -296,6 +296,9 @@ namespace hardware
         if (file)
             file.close();
 
+        // A failed start must not leave the previous transfer's target behind for `end` to use.
+        transferTarget = TransferTarget();
+
         if (data.isEmpty())
             return usb::ErrorCode::ERR_INVALID_TARGET_TYPE;
 
@@ -308,7 +311,8 @@ namespace hardware
 
         String identity = data.substring(1);
         String targetPath;
-        String transferProfile = "";
+        TransferTarget target;
+        target.type = targetType;
 
         if (targetType == usb::TargetType::TARGET_PAGE)
         {
@@ -321,13 +325,15 @@ namespace hardware
                 return usb::ErrorCode::ERR_PROFILE_NOT_FOUND;
 
             targetPath = pagePath(page);
-            transferProfile = page.profile;
+            target.profile = page.profile;
+            target.pageId = page.id;
         }
         else
         {
             if (!isIconIdentity(identity))
                 return usb::ErrorCode::ERR_INVALID_PATH;
             targetPath = iconPath(identity);
+            target.iconName = identity;
         }
 
         String tempPath = targetPath + ".tmp";
@@ -343,7 +349,7 @@ namespace hardware
         transferBytes = 0;
         currentFilePath = targetPath;
         currentTempPath = tempPath;
-        this->transferProfile = transferProfile;
+        transferTarget = target;
         transferCrc.reset();
         Serial0.printf("Creating new file: %s\n", targetPath.c_str());
         return usb::ErrorCode::OK;

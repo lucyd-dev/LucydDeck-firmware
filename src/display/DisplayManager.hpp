@@ -29,6 +29,7 @@ namespace display
         std::string currentIconPath;
         std::string currentLabel;
         std::string currentBgColor;
+        bool labelAtBottom = false;
         bool hasEmptyStyle = false;
     };
 
@@ -43,6 +44,7 @@ namespace display
         static void ifAvoidTearing(esp_panel::board::Board &board);
         void renderStartupScreen();
         void renderButtonsFromConfig(const config::actions::PageConfig &config);
+        void invalidateIcon(const String &iconName);
         void setButtonCallback(const ButtonCallback &cb) { buttonCallback = cb; }
         bool isRenderPending() const { return renderPending_; }
 
@@ -58,6 +60,9 @@ namespace display
         lv_obj_t *splashLabel = nullptr;
         ButtonSlot slots_[Layout::ROWS * Layout::COLS];
         bool renderPending_ = false;
+        // Set when an icon changed while the render lock was busy; the next render pass drops the
+        // whole decoded-image cache and every slot's image record instead of just that icon's.
+        bool iconCacheDirty_ = false;
         uint32_t lastRenderAttemptMs_ = 0;
         static constexpr int LVGL_LOCK_TIMEOUT_MS = 100;
         static constexpr uint32_t RENDER_RETRY_INTERVAL_MS = 200;
@@ -68,7 +73,10 @@ namespace display
         void createMainScreen();
         void updateSlot(ButtonSlot &slot, const config::actions::ButtonConfig &btnCfg);
         void setSlotEmpty(ButtonSlot &slot);
+        void clearSlotImage(ButtonSlot &slot);
+        static void clearSlotImageRecord(ButtonSlot &slot);
         void setEmptyStyle(ButtonSlot &slot, bool apply);
+        static std::string iconSourcePath(const String &iconName);
         static bool parseHexColor(const String &hex, lv_color_t &outColor);
         void applySlotBgColor(ButtonSlot &slot, const String &hexColor);
     };

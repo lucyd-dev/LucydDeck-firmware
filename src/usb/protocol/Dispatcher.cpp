@@ -14,7 +14,7 @@ namespace usb
               deviceInfo(usbManager, storage),
               profiles(usbManager, storage, configManager, deck),
               deletes(storage, configManager, deck),
-              fileTransfer(storage, configManager),
+              fileTransfer(storage, configManager, deck),
               queries(usbManager, storage)
         {
         }

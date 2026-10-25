@@ -39,6 +39,16 @@ namespace hardware
         static String iconPath(const String &iconName);
         static String profilePath(const String &profile);
 
+        // What CMD_FILE_START resolved to. The transfer handler repaints the entity a committed
+        // file belongs to, without parsing the identity a second time.
+        struct TransferTarget
+        {
+            usb::TargetType type = usb::TargetType::TARGET_PAGE;
+            String profile;      // TARGET_PAGE: the profile holding the page
+            uint8_t pageId = 0;  // TARGET_PAGE
+            String iconName;     // TARGET_ICON
+        };
+
         bool fileExists(const String &path);
         bool dirExists(const String &path);
         std::vector<String> listDir(const String &path, bool onlyDirs = false);
@@ -53,7 +63,7 @@ namespace hardware
         usb::ErrorCode handleFileChunk(const uint8_t *data, size_t len);
         usb::ErrorCode finishFile(const uint32_t expectedCRC);
         usb::ErrorCode cancelFileTransfer();
-        const String &getTransferProfile() const { return transferProfile; }
+        const TransferTarget &getTransferTarget() const { return transferTarget; }
 
     private:
         CRC32 hashCrc;
@@ -61,7 +71,7 @@ namespace hardware
         File file;
         String currentFilePath = "";
         String currentTempPath = "";
-        String transferProfile = "";
+        TransferTarget transferTarget;
         bool receivingFile = false;
         uint32_t lastFileActivityTime = 0;
         uint32_t transferBytes = 0;

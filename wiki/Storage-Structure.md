@@ -62,9 +62,9 @@ The firmware does **not** validate `.png`/`.json` content — it loads by path. 
 | `CMD_PROFILE_RENAME` | `SD.rename(/profiles/<old>, /profiles/<new>)`; missing src → `ERR_PROFILE_NOT_FOUND`, target exists → `ERR_PROFILE_EXISTS`, failure → `ERR_RENAME`; if the renamed profile is active, current selection follows |
 | `CMD_PROFILE_DELETE` | **recursive** delete (`Storage::deleteDirRecursive` removes files and subdirs, then `SD.rmdir`); missing → `ERR_PROFILE_NOT_FOUND`, failure → `ERR_DELETE`; if the deleted profile is active, `ConfigManager::ensureProfileSelected` reselects and the display re-renders |
 | `CMD_PAGE_DELETE` | unlink `/profiles/<profile>/<id>.json`; missing profile dir → `ERR_PROFILE_NOT_FOUND`, missing file → `ERR_FILE_NOT_FOUND`, failure → `ERR_DELETE`; the profile's page list is rebuilt (`ConfigManager::refreshProfile`); if the displayed page goes, the lowest remaining page repaints, or the deck blanks |
-| `CMD_ICON_DELETE` | unlink `/icons/<name>.png`; missing file → `ERR_FILE_NOT_FOUND`, failure → `ERR_DELETE`; no repaint, the image list is scanned per request |
+| `CMD_ICON_DELETE` | unlink `/icons/<name>.png`; missing file → `ERR_FILE_NOT_FOUND`, failure → `ERR_DELETE`; the image list is scanned per request, and the displayed page drops the decoded bitmap and repaints the key without it |
 | `CMD_FILE_START` | stages to `/profiles/<profile>/<id>.json` (page) or `/icons/<name>.png` (icon) (see [File-Transfer-Protocol](File-Transfer-Protocol)) |
-| `CMD_FILE_END` | atomic rename `.tmp` → target; on a page commit the profile's page list is rebuilt (`ConfigManager::refreshProfile`) |
+| `CMD_FILE_END` | atomic rename `.tmp` → target; on a page commit the profile's page list is rebuilt (`ConfigManager::refreshProfile`) and a commit to the displayed page re-reads and repaints it; an icon commit repaints the deck so the key shows the file as committed |
 
 All profile ops build paths as `PROFILES_DIR + name`; no host string ever reaches `SD.*` unvalidated.
 

@@ -26,7 +26,7 @@ Only keys actually read by `parsePageJson` are part of the contract. All are opt
 | Key | Type | Meaning |
 |---|---|---|
 | `buttons` | object (map) | maps button index `"0".."14"` → button object |
-| `buttons.<id>.imageName` | string | icon **base name, no extension**; firmware appends `.png` |
+| `buttons.<id>.imageName` | string | icon **base name, no extension**; firmware appends `.png` and looks the file up in `/icons/`. A name whose file is missing renders the key as if it had no icon: background colour and label, with a warning on the serial log |
 | `buttons.<id>.backgroundColor` | string | optional background color shown on the button |
 | `buttons.<id>.label` | string | optional text label shown on the button |
 | `buttons.<id>.click` | array | sequence of plain action strings for a short click |

@@ -35,12 +35,13 @@ No extension is accepted from the host. A page identity of `gaming/3.json` and a
 - The profile half must pass `Storage::validateName` (non-empty, not `.`/`..`, no `/` or `\`, no control characters) — otherwise `ERR_INVALID_PATH` (`0x10`).
 - The id half must be decimal **`0`–`255`**: digits only, at most three. Values are normalized, so `03` and `3` name the same page and commit to `<id>.json`. `.json` or a second slash yields `ERR_INVALID_PAGE_NAME` (`0x11`).
 - The profile directory **must already exist** (create it first with `CMD_PROFILE_CREATE`). A missing profile yields `ERR_PROFILE_NOT_FOUND` (`0x12`) **before** any `.tmp` file is opened; there is no auto-create.
-- On success the file is committed to `/profiles/<profile>/<id>.json` and the profile's page list is refreshed, so the new page is immediately visible in `CMD_GET_PROFILES_LIST` and navigable without a reboot (`ConfigManager::refreshProfile`).
+- On success the file is committed to `/profiles/<profile>/<id>.json` and the profile's page list is refreshed, so the new page is immediately visible in `CMD_GET_PROFILES_LIST` and navigable without a reboot (`ConfigManager::refreshProfile`). When the committed page is the one on screen, it is re-read from the card and repainted, so a changed label or a key added or removed shows up without a reboot or a page switch (`ConfigManager::reloadDisplayedPage`).
 
 ### Icon identity (`TARGET_ICON`)
 
 - Flat `validateName` on the whole identity — target `/icons/<name>.png`.
 - The identity must not carry an extension: a trailing `.png` or `.json` (case-insensitive) yields `ERR_INVALID_PATH` (`0x10`).
+- On success the displayed page drops the decoded bitmap for that path and repaints, so an icon added to a page on screen appears as its transfer lands, and an icon overwritten under its existing name shows the new picture (`DeckController::onIconChanged`).
 
 ## 3. `CMD_FILE_CHUNK` (0x31) — Streaming
 
@@ -53,7 +54,7 @@ No extension is accepted from the host. A page identity of `gaming/3.json` and a
 - Payload is exactly **4 bytes, big-endian**, the CRC-32 of **all bytes received since `CMD_FILE_START`**.
 - `< 4` bytes → `ERR_CRC_MISSING` (`0x27`) and the transfer is cancelled (`Storage::cancelFileTransfer`).
 - CRC mismatch (computed ≠ expected) → `ERR_CRC` (`0x28`) and the staging file is deleted.
-- CRC match → staging file is renamed over the target and `RESP_ACK` is returned (`Storage::finishFile`).
+- CRC match → staging file is renamed over the target and `RESP_ACK` is returned (`Storage::finishFile`). The handler then repaints the entity the transfer named: a page commit refreshes the profile and repaints the page if it is the one on screen, an icon commit invalidates that icon's decoded bitmap and repaints.
 
 **CRC-32 contract:** the standard IEEE/zlib CRC-32 (polynomial `0x04C11DB7`, reflected, init `0xFFFFFFFF`, final XOR `0xFFFFFFFF`) — the same check value used by PNG/zlib. It is computed by the `bakercp/CRC32` library with its default parameters, matching `Storage::calculateFileCRC` which is what the firmware uses to produce the `CMD_GET_IMAGES_LIST` / `CMD_GET_PROFILES_LIST` hashes. A host that uploads files walks the same algorithm over the exact byte sequence it sends.
 

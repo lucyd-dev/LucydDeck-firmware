@@ -197,6 +197,22 @@ namespace config
         it->second = buildPageList(hardware::Storage::PROFILES_DIR + profileName + "/");
     }
 
+    bool ConfigManager::reloadDisplayedPage()
+    {
+        // A transfer commits a page to the card; the frame on screen was read before it. Re-read
+        // the same page into currentConfig so the caller can repaint from what is on the card now.
+        // Nothing displayed, or a page that no longer parses, leaves the current frame alone.
+        if (currentProfile.isEmpty() || !currentPageId.has_value())
+            return false;
+
+        PageConfig newConfig;
+        if (!loadPageFromFile(currentProfile, *currentPageId, newConfig))
+            return false;
+
+        currentConfig = std::move(newConfig);
+        return true;
+    }
+
     void ConfigManager::addProfile(const String &name)
     {
         if (profiles.find(name) == profiles.end())

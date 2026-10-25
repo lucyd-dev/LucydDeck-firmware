@@ -35,6 +35,26 @@ namespace core
         return usb::ErrorCode::OK;
     }
 
+    void DeckController::refreshDisplayedPage()
+    {
+        // The page on screen was read before the transfer. Reload it and repaint; a page that no
+        // longer parses leaves the frame that is already up.
+        if (!config.reloadDisplayedPage())
+        {
+            Serial0.println("[WARN] Displayed page not reloaded, keeping the current frame");
+            return;
+        }
+        render();
+    }
+
+    void DeckController::onIconChanged(const String &iconName)
+    {
+        // A new, replaced or deleted icon only reaches the screen once the decoded bitmap for that
+        // path is dropped and the slot is told to set its source again.
+        display.invalidateIcon(iconName);
+        render();
+    }
+
     bool DeckController::handleInternal(const config::actions::ActionData &action)
     {
         if (std::holds_alternative<PageAction>(action))

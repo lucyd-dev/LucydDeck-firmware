@@ -45,8 +45,14 @@ namespace usb
                     return usb::ErrorCode::ERR_INVALID_PATH;
 
                 // The image list is rebuilt from the directory on every request, so nothing to
-                // invalidate here. The current page keeps the pixmap it already loaded.
-                return storage.deleteFile(hardware::Storage::iconPath(identity));
+                // invalidate there. The displayed page drops the pixmap it already loaded and
+                // falls back to the key's background and label.
+                usb::ErrorCode error = storage.deleteFile(hardware::Storage::iconPath(identity));
+                if (error != usb::ErrorCode::OK)
+                    return error;
+
+                deck.onIconChanged(identity);
+                return usb::ErrorCode::OK;
             }
         }
     }

@@ -25,6 +25,7 @@ namespace config
         bool isDisplayedPage(const String &profileName, uint8_t pageId) const;
         const actions::PageConfig &getCurrentConfig() const;
         void refreshProfile(const String &profileName);
+        bool reloadDisplayedPage();
         bool ensureProfileSelected();
         void addProfile(const String &name);
         void onProfileRenamed(const String &oldName, const String &newName);

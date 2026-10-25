@@ -215,6 +215,17 @@ namespace display
         }
         renderPending_ = false;
 
+        if (iconCacheDirty_)
+        {
+            // An icon changed while the lock was busy: nothing may be trusted from the last pass.
+            // Drop every decoded bitmap and every slot's record of what it shows, so the loop below
+            // sets each source again and a deleted icon falls back to its background and label.
+            lv_img_cache_invalidate_src(NULL);
+            for (ButtonSlot &slot : slots_)
+                clearSlotImageRecord(slot);
+            iconCacheDirty_ = false;
+        }
+
         for (uint8_t i = 0; i < Layout::ROWS * Layout::COLS; i++)
         {
             auto it = config.find(i);
@@ -229,42 +240,82 @@ namespace display
         lvgl_port_unlock();
     }
 
+    std::string DisplayManager::iconSourcePath(const String &iconName)
+    {
+        // LVGL reads through the "S:" drive, which its stdio driver maps onto the SD card.
+        return (String("S:") + hardware::Storage::iconPath(iconName)).c_str();
+    }
+
+    void DisplayManager::invalidateIcon(const String &iconName)
+    {
+        std::string source = iconSourcePath(iconName);
+
+        // LVGL keeps the decoded bitmap keyed by source path, so an overwritten file would keep
+        // drawing the old picture. Drop that entry and the slots' record of it under the render
+        // lock: the render task reads both, and the cache lookup matches on the path text the
+        // slots still hold. The next render then sets the source again and decodes the file as it
+        // is now.
+        if (!lockLvglWithRetry())
+        {
+            iconCacheDirty_ = true;
+            return;
+        }
+
+        lv_img_cache_invalidate_src(source.c_str());
+        for (ButtonSlot &slot : slots_)
+        {
+            if (slot.currentIconPath == source)
+                clearSlotImageRecord(slot);
+        }
+        lvgl_port_unlock();
+    }
+
     void DisplayManager::updateSlot(ButtonSlot &slot, const config::actions::ButtonConfig &btnCfg)
     {
         bool hasImage = !btnCfg.imageName.isEmpty() && btnCfg.imageName != "null";
         bool hasLabel = !btnCfg.label.isEmpty() && btnCfg.label != "null";
         bool hasBgColor = !btnCfg.backgroundColor.isEmpty() && btnCfg.backgroundColor != "null";
 
+        // A path LVGL cannot open leaves whatever pixmap the slot already holds, so an icon that is
+        // not on the card is drawn as a key without one: background colour and label. A slot that
+        // already shows this icon was checked when its source was set, and any icon change clears
+        // that record, so the card is only asked about names the slot does not have yet.
+        String iconFile;
+        bool iconOnCard = false;
         if (hasImage)
+        {
+            iconFile = hardware::Storage::iconPath(btnCfg.imageName);
+            iconOnCard = slot.currentImageBase == btnCfg.imageName.c_str() || storage.fileExists(iconFile);
+            if (!iconOnCard)
+                Serial0.printf("[WARN] Icon not on the card, drawing the key without it: %s\n", iconFile.c_str());
+        }
+
+        if (iconOnCard)
         {
             if (slot.currentImageBase != btnCfg.imageName.c_str())
             {
                 slot.currentImageBase = btnCfg.imageName.c_str();
-                String iconPath = String("S:") + hardware::Storage::IMAGE_DIR + btnCfg.imageName + ".png";
-                slot.currentIconPath = iconPath.c_str();
+                slot.currentIconPath = iconSourcePath(btnCfg.imageName);
                 lv_imgbtn_set_src(slot.img, LV_IMGBTN_STATE_RELEASED, NULL, slot.currentIconPath.c_str(), NULL);
             }
             setEmptyStyle(slot, false);
         }
         else
         {
-            if (!slot.currentImageBase.empty())
-            {
-                slot.currentImageBase.clear();
-                slot.currentIconPath.clear();
-                lv_imgbtn_set_src(slot.img, LV_IMGBTN_STATE_RELEASED, NULL, NULL, NULL);
-            }
+            clearSlotImage(slot);
             setEmptyStyle(slot, true);
         }
 
         if (hasLabel)
         {
-            if (slot.currentLabel != btnCfg.label.c_str())
+            bool atBottom = iconOnCard;
+            if (slot.currentLabel != btnCfg.label.c_str() || slot.labelAtBottom != atBottom)
             {
                 slot.currentLabel = btnCfg.label.c_str();
+                slot.labelAtBottom = atBottom;
                 lv_label_set_text(slot.label, btnCfg.label.c_str());
                 lv_obj_clear_flag(slot.label, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_align(slot.label, hasImage ? LV_ALIGN_BOTTOM_MID : LV_ALIGN_CENTER, 0, hasImage ? -6 : 0);
+                lv_obj_align(slot.label, atBottom ? LV_ALIGN_BOTTOM_MID : LV_ALIGN_CENTER, 0, atBottom ? -6 : 0);
             }
         }
         else
@@ -281,14 +332,23 @@ namespace display
         applySlotBgColor(slot, bgColor);
     }
 
+    void DisplayManager::clearSlotImageRecord(ButtonSlot &slot)
+    {
+        slot.currentImageBase.clear();
+        slot.currentIconPath.clear();
+    }
+
+    void DisplayManager::clearSlotImage(ButtonSlot &slot)
+    {
+        // Clear the source even when the slot has no recorded one: an invalidated icon leaves the
+        // object pointing at a path the display no longer vouches for.
+        clearSlotImageRecord(slot);
+        lv_imgbtn_set_src(slot.img, LV_IMGBTN_STATE_RELEASED, NULL, NULL, NULL);
+    }
+
     void DisplayManager::setSlotEmpty(ButtonSlot &slot)
     {
-        if (!slot.currentImageBase.empty())
-        {
-            slot.currentImageBase.clear();
-            slot.currentIconPath.clear();
-            lv_imgbtn_set_src(slot.img, LV_IMGBTN_STATE_RELEASED, NULL, NULL, NULL);
-        }
+        clearSlotImage(slot);
         setEmptyStyle(slot, true);
 
         if (!slot.currentLabel.empty())
@@ -296,6 +356,7 @@ namespace display
             slot.currentLabel.clear();
             lv_label_set_text(slot.label, "");
         }
+        slot.labelAtBottom = false;
         lv_obj_add_flag(slot.label, LV_OBJ_FLAG_HIDDEN);
         applySlotBgColor(slot, "");
     }

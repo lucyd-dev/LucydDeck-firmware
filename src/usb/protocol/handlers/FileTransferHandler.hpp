@@ -7,6 +7,7 @@
 #include "usb/Errors.hpp"
 #include "hardware/Storage.hpp"
 #include "config/ConfigManager.hpp"
+#include "core/DeckController.hpp"
 
 namespace usb
 {
@@ -17,7 +18,8 @@ namespace usb
             class FileTransferHandler
             {
             public:
-                FileTransferHandler(hardware::Storage &storage, config::ConfigManager &configManager);
+                FileTransferHandler(hardware::Storage &storage, config::ConfigManager &configManager,
+                                    core::DeckController &deck);
                 usb::ErrorCode start(const String &payload);
                 usb::ErrorCode chunk(const uint8_t *data, size_t len);
                 usb::ErrorCode end(const uint8_t *data, size_t len);
@@ -26,6 +28,7 @@ namespace usb
             private:
                 hardware::Storage &storage;
                 config::ConfigManager &configManager;
+                core::DeckController &deck;
             };
         }
     }
