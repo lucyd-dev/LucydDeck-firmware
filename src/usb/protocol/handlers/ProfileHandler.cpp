@@ -18,7 +18,7 @@ namespace usb
 
             usb::ErrorCode ProfileHandler::create(const String &name)
             {
-                if (!hardware::Storage::validateName(name))
+                if (!hardware::Storage::validateEntityName(name))
                     return usb::ErrorCode::ERR_INVALID_PATH;
                 if (storage.fileExists(hardware::Storage::PROFILES_DIR + name))
                     return usb::ErrorCode::ERR_PROFILE_EXISTS;
@@ -33,7 +33,9 @@ namespace usb
             {
                 String oldName, newName;
                 splitString(payload, ':', oldName, newName);
-                if (!hardware::Storage::validateName(oldName) || !hardware::Storage::validateName(newName))
+                // The old name is a lookup of an existing directory, so it keeps the older
+                // rule; the new name creates one and has to pass the entity grammar.
+                if (!hardware::Storage::validateName(oldName) || !hardware::Storage::validateEntityName(newName))
                     return usb::ErrorCode::ERR_INVALID_PATH;
 
                 usb::ErrorCode error = storage.renameDir(hardware::Storage::PROFILES_DIR + oldName,

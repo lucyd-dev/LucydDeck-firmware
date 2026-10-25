@@ -40,17 +40,30 @@ Configuration and asset files live on the device's microSD card, accessed throug
 
 ## 4. Naming Conventions & Format Rules
 
-Enforced by `Storage::validateName`:
+Two grammars live in `Storage`, and which one applies depends on whether a name is being **read** or **created**.
+
+**Path safety — `Storage::validateName`.** For reads, lookups and names that already exist on the card:
 
 - Names must be non-empty.
 - Must **not** be `.` or `..`.
 - Must **not** contain `/` or `\`.
 - Must not contain ASCII control characters (`< 0x20`).
 
+Everything else passes, so a profile, page or icon written before the entity grammar still loads, lists and deletes.
+
+**Entity names — `Storage::validateEntityName`.** For names that create a storage entity:
+
+- 1 to 64 bytes.
+- ASCII letters, digits, space, `-` and `_` only — no `:`, `*`, `?`, `"`, `<`, `>`, `|`, no dot, no separator, no non-ASCII byte.
+- No leading or trailing space.
+
+A name accepted here is a legal FAT long name and can never carry path syntax, so the entity always stays inside `PROFILES_DIR` or `IMAGE_DIR`.
+
 | Item | Supported formats | Naming rule |
 |---|---|---|
+| Profile directory | — | `validateEntityName` on `CMD_PROFILE_CREATE` and as the rename target; `validateName` for delete, activation, scanning and the profile half of a page identity |
 | Page config | `.json` | stored under `/profiles/<profile>/`; only files matching `^[0-9]+\.json$` are pages |
-| Icons | `.png` | `imageName` in JSON is the **base name without extension**; firmware looks up `/icons/<imageName>.png` |
+| Icons | `.png` | an uploaded name must pass `validateEntityName` (an icon already on the card may be overwritten under a legacy `validateName` name); delete, listing and the `imageName` lookup use `validateName`. `imageName` in JSON is the **base name without extension**, looked up as `/icons/<imageName>.png` |
 
 The firmware does **not** validate `.png`/`.json` content — it loads by path. Icon lists and profile lists returned over the wire include the full filename (with extension).
 
@@ -58,15 +71,15 @@ The firmware does **not** validate `.png`/`.json` content — it loads by path. 
 
 | Command | Effect |
 |---|---|
-| `CMD_PROFILE_CREATE` | `SD.mkdir(/profiles/<name>)`; pre-checks existence → `ERR_PROFILE_EXISTS`, failure → `ERR_CREATE` |
-| `CMD_PROFILE_RENAME` | `SD.rename(/profiles/<old>, /profiles/<new>)`; missing src → `ERR_PROFILE_NOT_FOUND`, target exists → `ERR_PROFILE_EXISTS`, failure → `ERR_RENAME`; if the renamed profile is active, current selection follows |
+| `CMD_PROFILE_CREATE` | `SD.mkdir(/profiles/<name>)`; a name that fails `validateEntityName` → `ERR_INVALID_PATH` before the card is touched; pre-checks existence → `ERR_PROFILE_EXISTS`, failure → `ERR_CREATE` |
+| `CMD_PROFILE_RENAME` | `SD.rename(/profiles/<old>, /profiles/<new>)`; old name `validateName`, new name `validateEntityName` (else `ERR_INVALID_PATH`, directory untouched); missing src → `ERR_PROFILE_NOT_FOUND`, target exists → `ERR_PROFILE_EXISTS`, failure → `ERR_RENAME`; if the renamed profile is active, current selection follows |
 | `CMD_PROFILE_DELETE` | **recursive** delete (`Storage::deleteDirRecursive` removes files and subdirs, then `SD.rmdir`); missing → `ERR_PROFILE_NOT_FOUND`, failure → `ERR_DELETE`; if the deleted profile is active, `ConfigManager::ensureProfileSelected` reselects and the display re-renders |
 | `CMD_PAGE_DELETE` | unlink `/profiles/<profile>/<id>.json`; missing profile dir → `ERR_PROFILE_NOT_FOUND`, missing file → `ERR_FILE_NOT_FOUND`, failure → `ERR_DELETE`; the profile's page list is rebuilt (`ConfigManager::refreshProfile`); if the displayed page goes, the lowest remaining page repaints, or the deck blanks |
-| `CMD_ICON_DELETE` | unlink `/icons/<name>.png`; missing file → `ERR_FILE_NOT_FOUND`, failure → `ERR_DELETE`; the image list is scanned per request, and the displayed page drops the decoded bitmap and repaints the key without it |
+| `CMD_ICON_DELETE` | unlink `/icons/<name>.png`; the name only has to pass `validateName`, so an icon from the older grammar can still be removed; missing file → `ERR_FILE_NOT_FOUND`, failure → `ERR_DELETE`; the image list is scanned per request, and the displayed page drops the decoded bitmap and repaints the key without it |
 | `CMD_FILE_START` | stages to `/profiles/<profile>/<id>.json` (page) or `/icons/<name>.png` (icon) (see [File-Transfer-Protocol](File-Transfer-Protocol)) |
 | `CMD_FILE_END` | atomic rename `.tmp` → target; on a page commit the profile's page list is rebuilt (`ConfigManager::refreshProfile`) and a commit to the displayed page re-reads and repaints it; an icon commit repaints the deck so the key shows the file as committed |
 
-All profile ops build paths as `PROFILES_DIR + name`; no host string ever reaches `SD.*` unvalidated.
+All profile ops build paths as `PROFILES_DIR + name`; no host string ever reaches `SD.*` unvalidated, and a name that creates a directory or file must also pass `validateEntityName`.
 
 ## 6. Hash / Reconciliation (`CMD_GET_IMAGES_LIST`, `CMD_GET_PROFILES_LIST`)
 
@@ -80,6 +93,6 @@ These responses let a host app perform delta syncs before uploading.
 
 | File | Responsibility |
 |---|---|
-| `src/hardware/Storage.hpp/.cpp` | path constants, `validateName`, dir/file operations, transfer staging |
+| `src/hardware/Storage.hpp/.cpp` | path constants, `validateName` / `validateEntityName`, dir/file operations, transfer staging |
 | `src/config/ConfigManager.hpp/.cpp` | profile/page scanning (`scanProfileDir`, `parsePageId`), JSON parsing, boot provisioning, `refreshProfile`/`ensureProfileSelected` |
 | `src/display/DisplayManager.hpp/.cpp` | icon path resolution (`S:<path>.png`) |

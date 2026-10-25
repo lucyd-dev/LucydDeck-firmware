@@ -90,8 +90,8 @@ All opcodes come from `enum Command` in [`OpCodes.hpp`](../src/usb/OpCodes.hpp).
 | `0x02` | `CMD_GET_IMAGES_LIST` | — | `RESP_IMAGES_LIST` |
 | `0x03` | `CMD_GET_PROFILES_LIST` | — | `RESP_PROFILES_LIST` |
 | `0x04` | `CMD_RESET_SEQUENCE` | — | `RESP_ACK` |
-| `0x20` | `CMD_PROFILE_CREATE` | profile name | `RESP_ACK` / `RESP_ERROR` |
-| `0x21` | `CMD_PROFILE_RENAME` | `old:new` | `RESP_ACK` / `RESP_ERROR` |
+| `0x20` | `CMD_PROFILE_CREATE` | profile name (`validateEntityName`) | `RESP_ACK` / `RESP_ERROR` |
+| `0x21` | `CMD_PROFILE_RENAME` | `old:new` (`validateName` : `validateEntityName`) | `RESP_ACK` / `RESP_ERROR` |
 | `0x22` | `CMD_PROFILE_DELETE` | profile name | `RESP_ACK` / `RESP_ERROR` |
 | `0x23` | `CMD_PAGE_DELETE` | `<profile>/<id>` | `RESP_ACK` / `RESP_ERROR` |
 | `0x24` | `CMD_ICON_DELETE` | `<name>` | `RESP_ACK` / `RESP_ERROR` |
@@ -114,12 +114,20 @@ The payload is `[ kind (1 byte) ][ identity (string) ]`, both from `TargetType` 
 | `0x02` | `TARGET_ICON` | `<name>` | `/icons/<name>.png` |
 
 - Page identities split on the first `/`: the profile must pass `validateName` and its directory must exist; the id is decimal `0`–`255`.
-- Icon identities are a flat `validateName`, without an extension.
+- Icon identities are a flat `validateEntityName` — 1 to 64 bytes of letters, digits, space, `-` and `_`, no leading or trailing space — without an extension. An icon already on the card may be overwritten under a legacy name that only passes `validateName`.
 - Full validation rules and the transfer flow are in [File-Transfer-Protocol §2](File-Transfer-Protocol#2-cmd_file_start-0x30--target-types).
+
+#### Profile names
+
+`CMD_PROFILE_CREATE` takes a name that must pass `Storage::validateEntityName`: 1 to 64 bytes of ASCII letters, digits, space, `-` and `_`, with no leading or trailing space. `Gaming Room` is accepted; `Gaming: Room`, `v1.2` and ` Gaming` are not.
+
+`CMD_PROFILE_RENAME` splits `old:new` on the first `:`. The old name is a lookup of an existing directory and passes `validateName`; the new name creates a directory and passes `validateEntityName`. A rejected new name returns `ERR_INVALID_PATH` (`0x10`) and leaves the directory untouched.
+
+`CMD_PROFILE_DELETE`, `CMD_SET_ACTIVE_PROFILE` and profile scanning keep `validateName`, so a profile created under the older rule still activates, renames away and deletes.
 
 #### `CMD_PAGE_DELETE` and `CMD_ICON_DELETE`
 
-Both take the identity `CMD_FILE_START` uses for that entity and remove the file it targets, answering `RESP_ACK` on success: `0x23` takes `<profile>/<id>` and removes `/profiles/<profile>/<id>.json`, `0x24` takes `<name>` and removes `/icons/<name>.png`. The grammar is the one in [File-Transfer-Protocol §2](File-Transfer-Protocol#2-cmd_file_start-0x30--target-types), with the page id normalized (`default/03` removes `default/3.json`). Neither accepts an extension, because the firmware appends it.
+Both take the identity `CMD_FILE_START` uses for that entity and remove the file it targets, answering `RESP_ACK` on success: `0x23` takes `<profile>/<id>` and removes `/profiles/<profile>/<id>.json`, `0x24` takes `<name>` and removes `/icons/<name>.png`. The page identity follows [File-Transfer-Protocol §2](File-Transfer-Protocol#2-cmd_file_start-0x30--target-types), with the page id normalized (`default/03` removes `default/3.json`). The icon name is a lookup of a file that already exists, so it only has to pass `validateName`; an icon written before the entity grammar stays deletable. Neither accepts an extension, because the firmware appends it.
 
 Errors — nothing is written or removed on any of them:
 
@@ -178,7 +186,7 @@ Unknown-opcode handling is **directional**:
 | `0x01` | `ERR_SEQUENCE` | host frame not exactly `prev+1`, or M-bit set |
 | `0x02` | `ERR_UNKNOWN_COMMAND` | unknown host-direction opcode |
 | `0x03` | `ERR_INVALID_DIRECTION` | host used a device-direction opcode (bit 7) |
-| `0x10` | `ERR_INVALID_PATH` | identity failed `validateName`, or an icon identity carried an extension |
+| `0x10` | `ERR_INVALID_PATH` | a name failed `validateName` (path safety) or `validateEntityName` (new entity name), or an icon identity carried an extension |
 | `0x11` | `ERR_INVALID_PAGE_NAME` | page identity not a decimal id `0`–`255` |
 | `0x12` | `ERR_PROFILE_NOT_FOUND` | profile dir missing (upload, rename src, delete) |
 | `0x13` | `ERR_PROFILE_EXISTS` | create or rename target conflicts |

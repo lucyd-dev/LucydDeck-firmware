@@ -26,7 +26,7 @@ Only keys actually read by `parsePageJson` are part of the contract. All are opt
 | Key | Type | Meaning |
 |---|---|---|
 | `buttons` | object (map) | maps button index `"0".."14"` → button object |
-| `buttons.<id>.imageName` | string | icon **base name, no extension**; firmware appends `.png` and looks the file up in `/icons/`. A name whose file is missing renders the key as if it had no icon: background colour and label, with a warning on the serial log |
+| `buttons.<id>.imageName` | string | icon **base name, no extension**; must pass `Storage::validateName`, and the firmware appends `.png` and looks the file up in `/icons/`. An invalid value is dropped and the button renders without an image; a valid name whose file is missing renders the key the same way, with a warning on the serial log |
 | `buttons.<id>.backgroundColor` | string | optional background color shown on the button |
 | `buttons.<id>.label` | string | optional text label shown on the button |
 | `buttons.<id>.click` | array | sequence of plain action strings for a short click |
@@ -117,4 +117,5 @@ When a button press produces such an action, the device sends an **`EVT_ACTION_T
 - `deserializeJson` must succeed.
 - `root["buttons"]` must be a JSON object, else the page fails to load (`ConfigManager`).
 - Button indices are parsed from keys via `atoi`, so non-numeric keys become `0` (be careful: use canonical `"0".."14"` keys).
+- `imageName`, when present and non-empty, must pass `Storage::validateName` (not `.`/`..`, no `/`, `\` or control characters). A failing value is dropped with a warning and the button renders without an image; the page still uploads and loads. The display resolves `imageName` as `S:/icons/<imageName>.png`, so this check is what stops a page config from pointing LVGL at another file (`../../profiles/default/0`).
 - Unparseable action entries are skipped; the rest of the page still loads.

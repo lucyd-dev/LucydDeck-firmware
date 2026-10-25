@@ -56,6 +56,30 @@ namespace hardware
         return true;
     }
 
+    bool Storage::validateEntityName(const String &name)
+    {
+        // A name that creates a storage entity: 1 to 64 bytes from a fixed ASCII set, no
+        // leading or trailing space. Anything outside the set (`:`, `*`, `?`, `"`, `<`, `>`,
+        // `|`), a dot, a separator or a non-ASCII byte is rejected, so the name is a valid FAT
+        // long name and cannot reach outside its directory.
+        if (name.isEmpty() || name.length() > ENTITY_NAME_MAX_LENGTH)
+            return false;
+        if (name[0] == ' ' || name[name.length() - 1] == ' ')
+            return false;
+
+        for (unsigned int i = 0; i < name.length(); ++i)
+        {
+            char c = name[i];
+            bool allowed = (c >= 'A' && c <= 'Z') ||
+                           (c >= 'a' && c <= 'z') ||
+                           (c >= '0' && c <= '9') ||
+                           c == ' ' || c == '-' || c == '_';
+            if (!allowed)
+                return false;
+        }
+        return true;
+    }
+
     usb::ErrorCode Storage::parsePageIdentity(const String &identity, PageIdentity &outPage)
     {
         int slash = identity.indexOf('/');
@@ -332,6 +356,13 @@ namespace hardware
         {
             if (!isIconIdentity(identity))
                 return usb::ErrorCode::ERR_INVALID_PATH;
+
+            // Replacing an icon that is already on the card introduces no new name, so a name
+            // from the older grammar stays writable. A new name has to pass the entity grammar;
+            // the path-safety check above already ran either way.
+            if (!validateEntityName(identity) && !fileExists(iconPath(identity)))
+                return usb::ErrorCode::ERR_INVALID_PATH;
+
             targetPath = iconPath(identity);
             target.iconName = identity;
         }

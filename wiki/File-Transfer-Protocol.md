@@ -32,14 +32,16 @@ No extension is accepted from the host. A page identity of `gaming/3.json` and a
 ### Page identity (`TARGET_PAGE`)
 
 - Split on the **first** `/` into profile and id.
-- The profile half must pass `Storage::validateName` (non-empty, not `.`/`..`, no `/` or `\`, no control characters) — otherwise `ERR_INVALID_PATH` (`0x10`).
+- The profile half must pass `Storage::validateName` (non-empty, not `.`/`..`, no `/` or `\`, no control characters) — otherwise `ERR_INVALID_PATH` (`0x10`). It names an existing profile, so the older rule applies and pages still upload to a profile created before the entity grammar.
 - The id half must be decimal **`0`–`255`**: digits only, at most three. Values are normalized, so `03` and `3` name the same page and commit to `<id>.json`. `.json` or a second slash yields `ERR_INVALID_PAGE_NAME` (`0x11`).
 - The profile directory **must already exist** (create it first with `CMD_PROFILE_CREATE`). A missing profile yields `ERR_PROFILE_NOT_FOUND` (`0x12`) **before** any `.tmp` file is opened; there is no auto-create.
 - On success the file is committed to `/profiles/<profile>/<id>.json` and the profile's page list is refreshed, so the new page is immediately visible in `CMD_GET_PROFILES_LIST` and navigable without a reboot (`ConfigManager::refreshProfile`). When the committed page is the one on screen, it is re-read from the card and repainted, so a changed label or a key added or removed shows up without a reboot or a page switch (`ConfigManager::reloadDisplayedPage`).
 
 ### Icon identity (`TARGET_ICON`)
 
-- Flat `validateName` on the whole identity — target `/icons/<name>.png`.
+- Target `/icons/<name>.png`.
+- The identity must pass `Storage::validateEntityName`: 1 to 64 bytes of ASCII letters, digits, space, `-` and `_`, with no leading or trailing space — otherwise `ERR_INVALID_PATH` (`0x10`). That set excludes `/`, `\`, control bytes, `.`, `:`, `*`, `?`, `"`, `<`, `>` and `|`, so `logo:1`, `logo.png` and `v1.2` are all rejected as new names.
+- **Overwrite exception:** a name that fails the entity grammar is still accepted when `/icons/<name>.png` already exists, because replacing a file creates no new name. An icon written before this rule can be updated under that same name. The identity must still pass `validateName`, so a path like `../../profiles/default/0` is rejected even if something exists at the resolved path.
 - The identity must not carry an extension: a trailing `.png` or `.json` (case-insensitive) yields `ERR_INVALID_PATH` (`0x10`).
 - On success the displayed page drops the decoded bitmap for that path and repaints, so an icon added to a page on screen appears as its transfer lands, and an icon overwritten under its existing name shows the new picture (`DeckController::onIconChanged`).
 

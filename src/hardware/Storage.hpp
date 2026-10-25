@@ -23,7 +23,12 @@ namespace hardware
         ~Storage();
         void begin();
         void loop();
+
+        // Path safety, for reads, lookups and names that already exist on the card.
         static bool validateName(const String &name);
+        // The grammar a new storage entity is created with. Stricter than validateName, so an
+        // entity name is also a legal FAT name and never carries path syntax.
+        static bool validateEntityName(const String &name);
         static std::optional<uint8_t> parsePageId(const String &filename);
 
         // Identity grammars shared by CMD_FILE_START and the delete commands. The host names an
@@ -34,6 +39,8 @@ namespace hardware
             uint8_t id = 0;
         };
         static usb::ErrorCode parsePageIdentity(const String &identity, PageIdentity &outPage);
+        // Path safety plus "no extension": the delete form, and the pre-check an upload runs
+        // before it applies the entity grammar.
         static bool isIconIdentity(const String &identity);
         static String pagePath(const PageIdentity &page);
         static String iconPath(const String &iconName);
@@ -75,6 +82,7 @@ namespace hardware
         bool receivingFile = false;
         uint32_t lastFileActivityTime = 0;
         uint32_t transferBytes = 0;
+        static constexpr unsigned int ENTITY_NAME_MAX_LENGTH = 64;
         static constexpr uint8_t FILE_CHUNK_MAX_SIZE = 64;
         static constexpr uint32_t FILE_TRANSFER_TIMEOUT = 1000;
         static constexpr uint32_t FILE_TRANSFER_MAX_BYTES = 4 * 1024 * 1024;

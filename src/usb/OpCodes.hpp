@@ -20,8 +20,8 @@ namespace usb
         CMD_RESET_SEQUENCE = 0x04,      // no payload → RESP_ACK; clears the host sequence baseline
 
         // 0x2X entity operations (host→device)
-        CMD_PROFILE_CREATE = 0x20, // data: profile name (string)
-        CMD_PROFILE_RENAME = 0x21, // data: old:new (string)
+        CMD_PROFILE_CREATE = 0x20, // data: profile name (validateEntityName)
+        CMD_PROFILE_RENAME = 0x21, // data: old:new (old validateName, new validateEntityName)
         CMD_PROFILE_DELETE = 0x22, // data: profile name (string)
         CMD_PAGE_DELETE    = 0x23, // data: "<profile>/<id>" (string, no .json)
         CMD_ICON_DELETE    = 0x24, // data: "<name>" (string, no .png)
@@ -55,6 +55,7 @@ namespace usb
     {
         TARGET_PAGE = 0x01,        // "<profile>/<id>" — profile passes validateName and its dir must
                                    // exist; id is decimal 0..255, normalized. Target /profiles/<profile>/<id>.json.
-        TARGET_ICON = 0x02         // "<name>" — flat validateName, no extension. Target /icons/<name>.png.
+        TARGET_ICON = 0x02         // "<name>" — validateEntityName, no extension; an icon already on
+                                   // the card may be replaced under a legacy name. Target /icons/<name>.png.
     };
 }

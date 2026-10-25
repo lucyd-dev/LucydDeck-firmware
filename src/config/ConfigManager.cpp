@@ -282,6 +282,15 @@ namespace config
             ButtonConfig btnConfig;
 
             btnConfig.imageName = btnObj["imageName"].as<String>();
+            // The display resolves imageName into a path on the card, so an uploaded config
+            // must not be able to point it at another file. A bad value only costs the button
+            // its icon; the page still loads and older icon names with a dot keep working.
+            if (!btnConfig.imageName.isEmpty() && !hardware::Storage::validateName(btnConfig.imageName))
+            {
+                Serial0.printf("[WARN] button %u imageName dropped (invalid name): %s\n",
+                               static_cast<unsigned int>(btnId), btnConfig.imageName.c_str());
+                btnConfig.imageName = "";
+            }
             btnConfig.label = btnObj["label"].as<String>();
             btnConfig.backgroundColor = btnObj["backgroundColor"].as<String>();
 

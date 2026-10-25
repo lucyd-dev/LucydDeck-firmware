@@ -13,7 +13,7 @@ namespace usb
         ERR_SEQUENCE            = 0x01, // host frame not exactly prev+1, or M-bit set
         ERR_UNKNOWN_COMMAND     = 0x02,
         ERR_INVALID_DIRECTION   = 0x03, // host used a device-direction opcode (bit 7)
-        ERR_INVALID_PATH        = 0x10, // identity failed validateName, or carried an extension
+        ERR_INVALID_PATH        = 0x10, // name failed validateName/validateEntityName, or an icon identity carried an extension
         ERR_INVALID_PAGE_NAME   = 0x11, // page identity not a decimal id 0..255
         ERR_PROFILE_NOT_FOUND   = 0x12, // dir missing (upload, rename src, delete)
         ERR_PROFILE_EXISTS      = 0x13, // create or rename target conflicts
