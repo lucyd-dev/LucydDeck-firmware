@@ -2,6 +2,7 @@
 // Copyright (c) 2024 LucydDev
 
 #include <Arduino.h>
+#include <driver/gpio.h>
 #include "usb/UsbManager.hpp"
 #include "hardware/Board.hpp"
 #include "hardware/Storage.hpp"
@@ -32,6 +33,16 @@ void setup()
     Serial0.begin(115200);
     Serial0.setDebugOutput(true);
     Serial0.println("--- Setup Start ---");
+
+    // The touch driver installs the GPIO ISR service from inside board.begin(). On this core that
+    // install runs esp_intr_alloc() on the 1 KB IPC task, where an interrupt nesting can trip the
+    // stack canary and leave the deck booting to a blank screen with no USB. Installing the service
+    // here, on the main task and before the panel starts, makes the driver's own call return
+    // "already installed", so the allocation never runs on that small stack. The touch still adds
+    // its handler to this service.
+    // Upstream: espressif/arduino-esp32#12650, fixed in the precompiled libs by
+    // esp32-arduino-lib-builder#386. This project pins arduino-esp32 3.1.1, which predates it.
+    gpio_install_isr_service(0);
 
     board.init();
     displayManager.ifAvoidTearing(board.getBoard());
