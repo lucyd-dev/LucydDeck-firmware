@@ -24,6 +24,11 @@ namespace hardware
         void begin();
         void loop();
 
+        // Settle the staging files a transfer interrupted by a crash, an unplug or a power loss
+        // left on the card. Runs at mount, before anything reads the card, and returns how many
+        // files it removed or restored.
+        unsigned int sweepStaleTransferFiles();
+
         // Path safety, for reads, lookups and names that already exist on the card.
         static bool validateName(const String &name);
         // The grammar a new storage entity is created with. Stricter than validateName, so an
@@ -89,7 +94,9 @@ namespace hardware
 
         void closeFile();
         void removeFile(const String &path);
+        unsigned int sweepStaleTransferFilesIn(const String &dir);
         static std::optional<uint8_t> parsePageIdValue(const String &id);
         static bool hasTransferExtension(const String &name);
+        static bool endsWithIgnoreCase(const String &name, const char *suffix);
     };
 }

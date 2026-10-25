@@ -22,7 +22,11 @@ Configuration and asset files live on the device's microSD card, accessed throug
 | `IMAGE_DIR` | `/icons/` | icon PNGs |
 | `PROFILES_DIR` | `/profiles/` | profile directories, each holding page JSONs |
 
-## 2. Boot-Time Provisioning (`ConfigManager::begin`)
+## 2. Boot-Time Provisioning
+
+At mount (`Storage::begin`), once the card answers and before anything reads or renders, `Storage::sweepStaleTransferFiles` settles the files a transfer interrupted by a crash, an unplug or a power loss left behind (see [File-Transfer-Protocol §5](File-Transfer-Protocol#5-atomic-commit--failure-modes)). It walks `/icons/` and every `/profiles/<profile>/`, logs the number of files it removed or restored, and returns early when the card is absent. This runs before `ConfigManager::begin`, so a restored `<id>.json` is enumerated at boot.
+
+Then `ConfigManager::begin` provisions and loads:
 
 1. Create `/profiles/` if missing.
 2. Scan `/profiles/` for profile directories.

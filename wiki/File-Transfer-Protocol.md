@@ -16,7 +16,7 @@ Uploading files (page configs, icon images) uses a three-phase sequence of `CMD_
  RESP_ACK / RESP_ERROR               ◄──
 ```
 
-The firmware never writes the destination in place: it streams into a `<target>.tmp` staging file. Once the CRC32 matches, an existing target is moved aside to `<target>.bak`, the staging file is renamed into place, and the backup is removed. If the swap fails, the backup is restored, so the last-good file survives. `CMD_FILE_CANCEL` aborts an in-flight transfer at any time (answer: `RESP_ACK`; with no active transfer: `ERR_NO_TRANSFER`).
+The firmware never writes the destination in place: it streams into a `<target>.tmp` staging file. Once the CRC32 matches, an existing target is moved aside to `<target>.bak`, the staging file is renamed into place, and the backup is removed. If the swap fails, the backup is restored, so the last-good file survives. A swap interrupted by a reboot is settled by the boot sweep (see §5). `CMD_FILE_CANCEL` aborts an in-flight transfer at any time (answer: `RESP_ACK`; with no active transfer: `ERR_NO_TRANSFER`).
 
 ## 2. `CMD_FILE_START` (0x30) — Target Types
 
@@ -72,8 +72,19 @@ expected CRC32 (big-endian) = CRC32(chunk0 bytes ++ chunk1 bytes ++ ... ++ chunk
 | Final rename fails | `ERR_FINALIZE` | restore the `.bak` target, delete `.tmp` |
 | Write error mid-stream | `ERR_WRITE` | close + delete `.tmp` |
 | Inactivity > `FILE_TRANSFER_TIMEOUT` (1000 ms) | — (silent) | close + delete `.tmp`; **no error frame is sent** (`Storage::loop`) |
+| Crash, unplug or power loss mid-transfer | — | next boot's sweep settles `.tmp`/`.bak` (below); no error frame is possible |
 | `CMD_FILE_END` with no active transfer | `ERR_NO_TRANSFER` | |
 | `CMD_FILE_START` while a transfer is active | `ERR_TRANSFER_BUSY` | |
+
+### Boot sweep
+
+The timeout path only covers a transfer that is still live. One interrupted by a reboot is settled at mount, before the first render: `Storage::sweepStaleTransferFiles` walks `/icons/` and every `/profiles/<profile>/`, handles each leftover file, and logs the total it removed or restored (`Storage::begin` calls it; see [Storage-Structure §2](Storage-Structure#2-boot-time-provisioning)).
+
+| Leftover | Target present | Action |
+|---|---|---|
+| `<target>.tmp` | — | delete — it never passed the CRC check |
+| `<target>.bak` | yes | delete — the duplicate left by a swap that finished |
+| `<target>.bak` | no | rename to `<target>` — the swap stopped between the two renames, so the backup is the last good copy |
 
 ## 6. Worked Example (page upload)
 

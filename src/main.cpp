@@ -48,14 +48,17 @@ void setup()
     displayManager.ifAvoidTearing(board.getBoard());
     board.begin();
 
+    // Mount the card and settle any interrupted transfer before USB brings the command surface up:
+    // a host that connects during boot must not be able to open a staging file the sweep is about
+    // to treat as stale.
+    storage.begin();
+    configManager.begin();
+
     usbManager.setPacketCallback([](usb::OpCode opCode, const uint16_t sequence, const uint8_t *data, size_t len)
     {
         dispatcher.onPacket(opCode, sequence, data, len);
     });
     usbManager.begin();
-
-    storage.begin();
-    configManager.begin();
 
     displayManager.setButtonCallback(&onButtonPress);
     displayManager.initializeLVGL(board.getBoard());

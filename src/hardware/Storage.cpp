@@ -32,6 +32,10 @@ namespace hardware
 
         uint64_t cardSize = SD.cardSize() / (1024 * 1024);
         Serial0.printf("SD Card Size: %lluMB\n", cardSize);
+
+        // The card is mounted, so nothing holds an open transfer and nothing has rendered yet.
+        // Settle whatever an interrupted one left behind before the boot scan reads the card.
+        sweepStaleTransferFiles();
     }
 
     uint32_t Storage::freeSpaceKb()
@@ -152,13 +156,89 @@ namespace hardware
     {
         // The firmware appends the extension, so an identity that already carries one is a
         // host mistake, not a filename to be taken literally.
-        auto endsWithIgnoreCase = [&name](const char *ext) {
-            size_t extLen = strlen(ext);
-            if (name.length() < extLen)
-                return false;
-            return name.substring(name.length() - extLen).equalsIgnoreCase(ext);
-        };
-        return endsWithIgnoreCase(".json") || endsWithIgnoreCase(".png");
+        return endsWithIgnoreCase(name, ".json") || endsWithIgnoreCase(name, ".png");
+    }
+
+    bool Storage::endsWithIgnoreCase(const String &name, const char *suffix)
+    {
+        size_t suffixLength = strlen(suffix);
+        if (name.length() < suffixLength)
+            return false;
+        return name.substring(name.length() - suffixLength).equalsIgnoreCase(suffix);
+    }
+
+    unsigned int Storage::sweepStaleTransferFiles()
+    {
+        unsigned int swept = sweepStaleTransferFilesIn(IMAGE_DIR);
+
+        for (const String &profile : listDir(PROFILES_DIR, true))
+            swept += sweepStaleTransferFilesIn(profilePath(profile));
+
+        Serial0.printf("Swept %u stale transfer file(s)\n", swept);
+        return swept;
+    }
+
+    unsigned int Storage::sweepStaleTransferFilesIn(const String &dir)
+    {
+        String base = dir;
+        if (!base.endsWith("/"))
+            base += "/";
+
+        // Collect the names first and let the directory handle close before acting: unlinking or
+        // renaming while readdir walks the same directory can skip entries.
+        std::vector<String> entries = listDir(dir, false);
+        unsigned int swept = 0;
+
+        for (const String &name : entries)
+        {
+            bool isTemp = endsWithIgnoreCase(name, ".tmp");
+            bool isBackup = endsWithIgnoreCase(name, ".bak");
+            if (!isTemp && !isBackup)
+                continue;
+
+            String path = base + name;
+            if (dirExists(path))
+                continue;
+
+            if (isTemp)
+            {
+                // The staging file was never verified by a CRC, so there is nothing worth keeping.
+                if (!SD.remove(path.c_str()))
+                {
+                    Serial0.printf("[ERR] Failed to delete stale transfer file: %s\n", path.c_str());
+                    continue;
+                }
+                Serial0.printf("Removed stale transfer file: %s\n", path.c_str());
+                swept++;
+                continue;
+            }
+
+            // A backup whose target is still there is the duplicate left behind after the swap
+            // finished. Without a target the swap stopped between the two renames, so the backup
+            // is the last good copy and goes back under the target's name.
+            String target = path.substring(0, path.length() - 4);
+            if (fileExists(target))
+            {
+                if (!SD.remove(path.c_str()))
+                {
+                    Serial0.printf("[ERR] Failed to delete stale backup: %s\n", path.c_str());
+                    continue;
+                }
+                Serial0.printf("Removed stale backup: %s\n", path.c_str());
+                swept++;
+            }
+            else if (SD.rename(path.c_str(), target.c_str()))
+            {
+                Serial0.printf("Restored backup: %s -> %s\n", path.c_str(), target.c_str());
+                swept++;
+            }
+            else
+            {
+                Serial0.printf("[ERR] Failed to restore backup: %s\n", path.c_str());
+            }
+        }
+
+        return swept;
     }
 
     bool Storage::fileExists(const String &path)
