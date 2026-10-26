@@ -105,6 +105,7 @@ Comprehensive architecture guides, protocol specifications, and schema definitio
 
 * **Host Integration:** Refer to the [USB Protocol](wiki/USB-Protocol.md) for packet structure and the `EVT_ACTION_TRIGGERED` event pipeline.
 * **Configuration Management:** Refer to the [Configuration Schema](wiki/Configuration-Schema.md) and [File Transfer Protocol](wiki/File-Transfer-Protocol.md) for managing profiles, grid layouts, and button assets.
+* **Releases & Updates:** Refer to the [Releasing](wiki/Releasing.md) walk-through and the [Firmware Manifest](wiki/Firmware-Manifest.md) reference for how a release is published and installed over USB.
 
 ## 📦 Dependencies
 

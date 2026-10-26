@@ -37,26 +37,82 @@ jobs:
         if: ${{ steps.release.outputs.releases_created == 'true' }}
         run: pio run -e release
 
-      - name: Upload Firmware to Release
+      - name: Prepare release assets
         if: ${{ steps.release.outputs.releases_created == 'true' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name || steps.release.outputs['--tag_name'] }}
         run: |
-          TAG_NAME="${{ steps.release.outputs.tag_name || steps.release.outputs['--tag_name'] }}"
-          
+          set -euo pipefail
+
           if [ -z "$TAG_NAME" ]; then
             echo "Error: Got no tagname from Release Please."
             exit 1
           fi
 
-          BIN_PATH=$(find .pio/build -name "firmware.bin" | head -n 1)
-          
-          if [ -z "$BIN_PATH" ]; then
-            echo "Error: firmware.bin not found."
+          BIN_PATH=".pio/build/release/firmware.bin"
+
+          if [ ! -f "$BIN_PATH" ]; then
+            echo "Error: $BIN_PATH not found."
             exit 1
           fi
 
-          OUTPUT_NAME="LucydDeck-firmware-${TAG_NAME}.bin"
-          cp "$BIN_PATH" "$OUTPUT_NAME"
-          
-          gh release upload "$TAG_NAME" "$OUTPUT_NAME" --clobber
+          # Releases ship the app image alone: nothing else is flashed over USB.
+          cp "$BIN_PATH" "LucydDeck-firmware-${TAG_NAME}.bin"
+
+          # Refuses an image the app would reject: wrong chip, over the app slot,
+          # or a manifest whose board key does not match the release.
+          python3 scripts/firmware_manifest.py \
+            --bin "LucydDeck-firmware-${TAG_NAME}.bin" \
+            --tag "$TAG_NAME" \
+            --out firmware.json
+
+      - name: Detect the first manifest-bearing release
+        id: manifest
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name || steps.release.outputs['--tag_name'] }}
+        run: |
+          set -euo pipefail
+
+          # No earlier release carrying firmware.json means this is the release
+          # that switches in-app updates on, and the notes have to say so.
+          published=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '[.[] | select(.tag_name != env.TAG_NAME) | select(any(.assets[]?; .name == "firmware.json"))] | length')
+
+          echo "releases carrying a manifest before this one: $published"
+
+          if [ "$published" = "0" ]; then
+            echo "first=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "first=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Firmware and Manifest to Release
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name || steps.release.outputs['--tag_name'] }}
+        run: |
+          set -euo pipefail
+
+          gh release upload "$TAG_NAME" \
+            "LucydDeck-firmware-${TAG_NAME}.bin" \
+            firmware.json \
+            --clobber
+
+      - name: Note the first in-app-update release
+        if: ${{ steps.release.outputs.releases_created == 'true' && steps.manifest.outputs.first == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name || steps.release.outputs['--tag_name'] }}
+        run: |
+          set -euo pipefail
+
+          VERSION="${TAG_NAME#v}"
+          NOTES_URL="https://github.com/${GITHUB_REPOSITORY}/blob/main/wiki"
+          notes=$(gh release view "$TAG_NAME" --json body --jq .body)
+          footer="**In-app updates start with v${VERSION}.** This is the first firmware release the LucydDeck app can install over USB. A deck on an older firmware needs one PlatformIO flash first; from then on the app owns updates (\`CMD_ENTER_BOOTLOADER\`). How a release is built: ${NOTES_URL}/Releasing.md. What the app checks: ${NOTES_URL}/Firmware-Manifest.md."
+
+          printf '%s\n\n---\n\n%s\n' "$notes" "$footer" > release-notes.md
+          gh release edit "$TAG_NAME" --notes-file release-notes.md

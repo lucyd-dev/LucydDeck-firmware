@@ -32,7 +32,7 @@ The Windows clone at `/mnt/c/Users/steve/Documents/Code/LucydDeckProject/LucydDe
 - `src/config/`: `ConfigManager`, actions, page config.
 - `src/core/`: `DeckController`.
 - `src/display/`: LVGL display layer.
-- `wiki/`: wire protocol, file transfer, configuration schema, storage structure.
+- `wiki/`: wire protocol, file transfer, configuration schema, storage structure, release and manifest docs.
 
 ## Rules
 
