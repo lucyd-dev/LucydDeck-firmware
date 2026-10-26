@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/lucyd-dev/LucydDeck-firmware/compare/v0.4.0...v0.5.0) (2026-10-26)
+
+
+### Features
+
+* **usb:** name the deck "LucydDeck" on USB ([#23](https://github.com/lucyd-dev/LucydDeck-firmware/issues/23)) ([bf0f837](https://github.com/lucyd-dev/LucydDeck-firmware/commit/bf0f837bc7e6e3b3da72842cb8a137e01c6147f4)), closes [#22](https://github.com/lucyd-dev/LucydDeck-firmware/issues/22)
+
 ## [0.4.0](https://github.com/lucyd-dev/LucydDeck-firmware/compare/v0.3.1...v0.4.0) (2026-10-26)
 
 
