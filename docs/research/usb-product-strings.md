@@ -173,7 +173,7 @@ then, not when `USBHIDKeyboard` is constructed. The CDC does the same with `"Tin
 
 The app reads names through node-hid 3.4.0 (`package.json:28`), which vendors hidapi 0.15.0
 (`node_modules/node-hid/hidapi/VERSION`), and builds its label from `device.product`
-(`~/Code/LucydDeck/electron/main/services/UsbService.ts:114-116`, used for the connected status
+(`lucyd-dev/LucydDeck: electron/main/services/UsbService.ts:114-116`, used for the connected status
 label at `:284-287`). node-hid maps hidapi's `product_string` to `product`
 (`node_modules/node-hid/src/devices.cc:50-52`). So the question is what each hidapi backend puts in
 `product_string`.
@@ -319,7 +319,7 @@ Caveats, verified:
   `USB_PID 0x1001`; `USB_PRODUCT` feeds `product_name` only (`USB.cpp:129-136`, `:170`), and the
   endpoint layout is decided by the interface loaders, which this flag does not reach.
 - Host matching is name-independent: `matchDevice()` checks VID, PID and usage page/usage
-  (`~/Code/LucydDeck/shared/protocol.ts:312-343`).
+  (`lucyd-dev/LucydDeck: shared/protocol.ts:312-343`).
 - `RESP_DEVICE_INFO.board` is `BOARD_NAME` (`platformio.ini [common]`), not `USB_PRODUCT`, so the
   firmware manifest lookup is unaffected.
 - The CDC interface keeps its own `"TinyUSB CDC"` string (`USBCDC.cpp:32`); Windows may show that

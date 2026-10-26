@@ -23,7 +23,7 @@ pio device monitor -e debug   # serial log
 pio run -e release            # release build
 ```
 
-The Windows clone at `/mnt/c/Users/steve/Documents/Code/LucydDeckProject/LucydDeck-firmware` is a fallback only. Do not develop there.
+A separate Windows clone is a fallback only. Do not develop there.
 
 ## Layout
 

@@ -41,6 +41,19 @@ release-please opens a pull request on the next push to `main`, titled `chore(ma
 
 `bump-minor-pre-major` is on, so pre-1.0.0 a feature moves the minor version (`0.3.x` → `0.4.0`) and a fix moves the patch version. Do not create the tag or the release by hand: the workflow keys off the release that release-please created.
 
+### Release pull-request checks
+
+release-please runs with `RELEASE_PLEASE_TOKEN`, not the default `GITHUB_TOKEN`. A pull request opened with `GITHUB_TOKEN` never triggers other workflows, so its release PR would merge untested; the token makes the normal `PlatformIO Compile Test` run on it.
+
+If a release PR ever shows no check, run the build on its branch instead of guessing:
+
+```bash
+gh workflow run "CI - Build Check" -R lucyd-dev/LucydDeck-firmware \
+  --ref release-please--branches--main
+```
+
+Wait for the check; never merge a release PR with `--admin`. After the merge, the release commit (`chore(main): release X.Y.Z`) skips its own push CI, because the release workflow builds and validates that exact commit.
+
 ## 5. Watch the Workflow
 
 Merging the release pull request pushes to `main`, which runs [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml):
