@@ -2,6 +2,7 @@
 // Copyright (c) 2024 LucydDev
 
 #include "UsbManager.hpp"
+#include <esp32-hal-tinyusb.h>
 #include <variant>
 
 namespace
@@ -85,6 +86,16 @@ namespace usb
     void UsbManager::loop()
     {
         customHIDDevice.loop();
+    }
+
+    void UsbManager::enterBootloader()
+    {
+        customHIDDevice.sendAck();
+
+        // The ACK is the last frame this command produces. Give the USB stack time to put it on
+        // the wire before the restart, so the host sees the answer and then the interface go.
+        delay(BOOTLOADER_ACK_DELAY_MS);
+        usb_persist_restart(RESTART_BOOTLOADER);
     }
 
     void UsbManager::SerialEventCallback(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)

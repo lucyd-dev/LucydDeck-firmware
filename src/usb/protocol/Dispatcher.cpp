@@ -41,6 +41,9 @@ namespace usb
                 usbManager.resetSequence();
                 usbManager.sendAck();
                 break;
+            case usb::CMD_ENTER_BOOTLOADER:
+                usbManager.enterBootloader();
+                break;
             case usb::CMD_PROFILE_CREATE:
                 reply(profiles.create(payloadString(data, len)));
                 break;

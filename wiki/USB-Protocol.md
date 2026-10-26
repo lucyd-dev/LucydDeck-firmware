@@ -90,6 +90,7 @@ All opcodes come from `enum Command` in [`OpCodes.hpp`](../src/usb/OpCodes.hpp).
 | `0x02` | `CMD_GET_IMAGES_LIST` | — | `RESP_IMAGES_LIST` |
 | `0x03` | `CMD_GET_PROFILES_LIST` | — | `RESP_PROFILES_LIST` |
 | `0x04` | `CMD_RESET_SEQUENCE` | — | `RESP_ACK` |
+| `0x05` | `CMD_ENTER_BOOTLOADER` | — | `RESP_ACK`, then the device restarts |
 | `0x20` | `CMD_PROFILE_CREATE` | profile name (`validateEntityName`) | `RESP_ACK` / `RESP_ERROR` |
 | `0x21` | `CMD_PROFILE_RENAME` | `old:new` (`validateName` : `validateEntityName`) | `RESP_ACK` / `RESP_ERROR` |
 | `0x22` | `CMD_PROFILE_DELETE` | profile name | `RESP_ACK` / `RESP_ERROR` |
@@ -103,6 +104,10 @@ All opcodes come from `enum Command` in [`OpCodes.hpp`](../src/usb/OpCodes.hpp).
 | `0x41` | `CMD_SET_ACTIVE_PAGE` | page id | `RESP_ACK` / `RESP_ERROR` |
 
 `CMD_PING` is a zero-payload heartbeat; the device answers it with `RESP_ACK` immediately.
+
+#### `CMD_ENTER_BOOTLOADER`
+
+`CMD_ENTER_BOOTLOADER` (`0x05`) asks the deck to restart into the ESP32-S3 ROM download loader so a host can flash it. It takes no payload, needs no prior file transfer and no device state. The device answers `RESP_ACK`, waits 100 ms so the frame can leave the USB stack, then calls `usb_persist_restart(RESTART_BOOTLOADER)` (`UsbManager::enterBootloader`). The firmware sends no further response for this command: the host treats the HID interface disappearing as success, and the ROM loader appears on the same physical USB path.
 
 #### `CMD_FILE_START` target grammar
 
@@ -170,6 +175,8 @@ Every host command is answered with **exactly one** device frame:
 - `RESP_ERROR` + 1-byte `ErrorCode` on failure.
 
 `CMD_RESET_SEQUENCE` is the one command answered with `RESP_ACK` while the device's sequence baseline is out of step. The device clears the baseline before sending the ACK.
+
+`CMD_ENTER_BOOTLOADER` follows the same contract — one `RESP_ACK` — but that ACK is the last frame the device sends: the firmware restarts into the ROM loader right after it.
 
 Unknown-opcode handling is **directional**:
 
