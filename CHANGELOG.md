@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/lucyd-dev/LucydDeck-firmware/compare/v0.3.1...v0.4.0) (2026-10-26)
+
+
+### Features
+
+* **protocol:** validate entity names against a character whitelist ([bf62a0f](https://github.com/lucyd-dev/LucydDeck-firmware/commit/bf62a0fbb74bcc7e96b1a9760c9fc05b705931c7)), closes [#11](https://github.com/lucyd-dev/LucydDeck-firmware/issues/11)
+* **usb:** add CMD_ENTER_BOOTLOADER ([#18](https://github.com/lucyd-dev/LucydDeck-firmware/issues/18)) ([3c583ca](https://github.com/lucyd-dev/LucydDeck-firmware/commit/3c583caf1fe66f4219a110a19fe6d87ff8710d55))
+* **usb:** add page and icon delete commands ([f188f0d](https://github.com/lucyd-dev/LucydDeck-firmware/commit/f188f0d38649464ac0ffa2d2d22a15c765d580b0)), closes [#9](https://github.com/lucyd-dev/LucydDeck-firmware/issues/9)
+
+
+### Bug Fixes
+
+* **board:** install the GPIO ISR service before the panel starts ([b66f274](https://github.com/lucyd-dev/LucydDeck-firmware/commit/b66f2748028fbf26b06bd2ae2dc2935261a17715))
+* **display:** repaint the deck when a transfer changes the page on screen ([ebae448](https://github.com/lucyd-dev/LucydDeck-firmware/commit/ebae448fba3890411eb4fc3dec9159f2c60cad14)), closes [#13](https://github.com/lucyd-dev/LucydDeck-firmware/issues/13)
+* **storage:** replace an existing file when a transfer finalizes ([9613ea7](https://github.com/lucyd-dev/LucydDeck-firmware/commit/9613ea7ff32440147d562f0e39839f93b143a7a3))
+* **storage:** sweep stale transfer files at mount ([b738019](https://github.com/lucyd-dev/LucydDeck-firmware/commit/b738019ffd3108c84232e4a1ad8e151d8eb5b1c4)), closes [#12](https://github.com/lucyd-dev/LucydDeck-firmware/issues/12)
+* **usb:** add host sequence reset command ([#7](https://github.com/lucyd-dev/LucydDeck-firmware/issues/7)) ([5cf64f5](https://github.com/lucyd-dev/LucydDeck-firmware/commit/5cf64f52cdb07a9d498ef2ba0921164e3e299b28))
+
 ## [0.3.1](https://github.com/lucyd-dev/LucydDeck-firmware/compare/v0.3.0...v0.3.1) (2026-09-18)
 
 
