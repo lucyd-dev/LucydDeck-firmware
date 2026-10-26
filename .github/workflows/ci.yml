@@ -7,6 +7,10 @@ on:
   push:
     branches:
       - main
+  # Release-please opens its PR with GITHUB_TOKEN, so no pull_request event
+  # fires for it and the required check never runs. Dispatch this workflow on
+  # the release branch to give the ruleset a real run; never merge with --admin.
+  workflow_dispatch:
 
 jobs:
   build-check:
