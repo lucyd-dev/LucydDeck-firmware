@@ -64,6 +64,8 @@ Defined in `platformio.ini` under `[common]`:
 | [**File-Transfer-Protocol**](File-Transfer-Protocol) | `CMD_FILE_START` → `CMD_FILE_CHUNK` → `CMD_FILE_END` workflow, target identities, CRC32, atomic `.tmp` staging |
 | [**Configuration-Schema**](Configuration-Schema) | Page JSON schema (3×5 grid, keys `0..14`), button properties, action-string grammar |
 | [**Storage-Structure**](Storage-Structure) | SD card directory layout, `<id>.json` page naming, profile operations, boot-time provisioning |
+| [**Releasing**](Releasing) | a merged change through to an installable release: release-please, the release workflow, the first manifest-bearing release, verification |
+| [**Firmware-Manifest**](Firmware-Manifest) | `firmware.json`: every field, the `max_app_8MB` app slot and its 8064 KiB limit, every refusal on either side |
 
 ## Quick Start (Host App Checklist)
 

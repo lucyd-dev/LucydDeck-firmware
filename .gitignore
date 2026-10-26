@@ -1,3 +1,10 @@
 .pio
 .vscode/*
 ! .vscode/extensions.json
+
+# Release assets are built by the release workflow, never committed
+firmware.json
+LucydDeck-firmware-*.bin
+
+# Python bytecode
+__pycache__/
