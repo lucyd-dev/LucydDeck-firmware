@@ -12,12 +12,13 @@ namespace usb
 
     enum OpCode : uint8_t
     {
-        // 0x0X device info (host→device)
+        // 0x0X device info and control (host→device)
         CMD_PING = 0x00,            // heartbeat, no payload → response: RESP_ACK
         CMD_GET_DEVICE_INFO = 0x01, // response: RESP_DEVICE_INFO
         CMD_GET_IMAGES_LIST = 0x02,      // response: RESP_IMAGES_LIST
         CMD_GET_PROFILES_LIST = 0x03,   // response: RESP_PROFILES_LIST
         CMD_RESET_SEQUENCE = 0x04,      // no payload → RESP_ACK; clears the host sequence baseline
+        CMD_ENTER_BOOTLOADER = 0x05,    // no payload → RESP_ACK, then restart into the ROM loader
 
         // 0x2X entity operations (host→device)
         CMD_PROFILE_CREATE = 0x20, // data: profile name (validateEntityName)

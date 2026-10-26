@@ -26,6 +26,7 @@ namespace usb
         void sendAck() { customHIDDevice.sendAck(); }
         void sendError(const ErrorCode error) { customHIDDevice.sendError(error); }
         void resetSequence() { customHIDDevice.resetSequence(); }
+        void enterBootloader();
         bool isConnected() const { return usbConnected; }
         bool postSequence(const config::actions::ActionSequence &sequence);
         bool postInternal(const config::actions::ActionData &action);
@@ -38,6 +39,7 @@ namespace usb
         static constexpr uint8_t INTERNAL_QUEUE_LENGTH = 4;
         static constexpr uint16_t ACTION_TASK_STACK_SIZE = 6 * 1024;
         static constexpr uint8_t ACTION_TASK_PRIORITY = 1;
+        static constexpr uint16_t BOOTLOADER_ACK_DELAY_MS = 100;
         USBHIDKeyboard keyboard;
         USBHIDConsumerControl consumer;
         USBHIDMouse mouse;
