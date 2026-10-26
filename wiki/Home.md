@@ -20,11 +20,12 @@ This repository is the **firmware only**. There is no bundled PC host; the host 
 
 | Property | Value | Source |
 |---|---|---|
-| Board | Waveshare ESP32-S3-Touch-LCD-4.3 | board variant `waveshare_esp32_s3_touch_lcd_43` |
+| Board | Waveshare ESP32-S3-Touch-LCD-4.3 | board variant `esp32s3`, `board = waveshare_esp32s3_touch_lcd_4_3` in `platformio.ini` |
 | Top USB | **USB-Enhanced-Serial (CH343)** – programming / serial monitor only | board variant |
 | Bottom USB | **Native USB (USB-OTG)** – carries the HID interfaces used by the protocol | board variant |
 | USB Vendor ID (`USB_VID`) | `0x303A` (Espressif Systems) | board variant `pins_arduino.h` |
-| USB Product ID (`USB_PID`) | `0x822E` | board variant `pins_arduino.h` |
+| USB Product ID (`USB_PID`) | `0x1001` | board variant `pins_arduino.h` |
+| USB product string (`iProduct`) | `LucydDeck` | `platformio.ini`, `USB_PRODUCT` |
 | Vendor HID usage page | `0xFF00`, Usage `0x01` | `USBHIDVendor` framework descriptor |
 | Vendor HID report ID | `0x06` | `USBHID.h` (`HID_REPORT_ID_VENDOR`) |
 | Vendor report size | 64 bytes on the wire (`0x06` Report ID + 63 data bytes) | `CustomHIDDevice` |
@@ -43,6 +44,22 @@ The native USB port presents a **composite device** with multiple HID interfaces
 | HID Vendor tube | **LucydDeck cmd protocol** | report ID `0x06`, see [USB-Protocol](USB-Protocol) |
 
 A host app that only cares about config management / plugin events needs **only** the vendor HID interface. It must not open the keyboard / mouse / consumer interfaces (those are OS-consumed for local action execution).
+
+### Device name on the USB bus
+
+The deck advertises the product string `LucydDeck` (`iProduct`, string index 2), set at build time by
+`USB_PRODUCT` in `platformio.ini`. The hosts read different strings:
+
+| Host | String the app sees | Where it comes from |
+|---|---|---|
+| Linux | `LucydDeck` | hidapi reads udev's `product` attribute of the USB device, which is `iProduct` |
+| Windows | `TinyUSB HID` | hidapi calls `HidD_GetProductString`, which for a composite interface is the interface's `iInterface` |
+
+Arduino-ESP32 3.1.1 hardcodes every HID interface's `iInterface` to `TinyUSB HID` and exposes no setter
+(the request to add one, [arduino-esp32#11394](https://github.com/espressif/arduino-esp32/issues/11394), is
+still open), so Windows cannot be renamed from this firmware without patching the core. A host app that
+wants one name on both platforms labels the device by VID/PID rather than by the product string. The full
+evidence is in [USB product and interface strings](../docs/research/usb-product-strings.md).
 
 ## Firmware Build Constants (returned over the wire)
 
